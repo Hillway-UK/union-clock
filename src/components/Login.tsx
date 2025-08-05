@@ -3,8 +3,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import pioneerLogo from '@/assets/pioneer-logo.png';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -62,10 +63,14 @@ export default function Login() {
       <div className="w-full max-w-md">
         <Card className="border-0 shadow-lg">
           <CardHeader className="text-center pb-4">
-            <div className="mx-auto mb-4 p-3 bg-primary/10 rounded-full w-16 h-16 flex items-center justify-center">
-              <Clock className="w-8 h-8 text-primary" />
+            <div className="mx-auto mb-4 p-2 bg-primary/10 rounded-lg w-24 h-16 flex items-center justify-center overflow-hidden">
+              <img 
+                src={pioneerLogo} 
+                alt="Pioneer Construction" 
+                className="max-w-full max-h-full object-contain"
+              />
             </div>
-            <CardTitle className="text-2xl font-bold">Pioneer Clock</CardTitle>
+            <CardTitle className="text-2xl font-bold">Time Keeper</CardTitle>
             <p className="text-muted-foreground">Construction Time Tracking</p>
           </CardHeader>
           <CardContent>

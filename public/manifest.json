@@ -1,6 +1,6 @@
 {
-  "name": "Pioneer Clock",
-  "short_name": "Clock",
+  "name": "Time Keeper",
+  "short_name": "Time Keeper",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",

@@ -3,8 +3,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Camera, MapPin, Clock, LogOut, Loader2 } from 'lucide-react';
+import { Camera, MapPin, Clock, LogOut, Loader2, User, HelpCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import pioneerLogo from '@/assets/pioneer-logo.png';
 
 interface Worker {
   id: string;
@@ -362,14 +363,29 @@ export default function ClockScreen() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-card shadow-sm px-6 py-4 flex justify-between items-center border-b">
-        <div>
-          <h1 className="text-xl font-bold text-foreground">{worker.name}</h1>
-          <p className="text-sm text-muted-foreground">Pioneer Construction</p>
+      <div className="bg-card shadow-sm px-4 py-3 flex justify-between items-center border-b">
+        <div className="flex items-center gap-3">
+          <img 
+            src={pioneerLogo} 
+            alt="Pioneer Construction" 
+            className="h-8 w-12 object-contain"
+          />
+          <div>
+            <h1 className="text-lg font-bold text-foreground">{worker.name}</h1>
+            <p className="text-xs text-muted-foreground">Time Keeper</p>
+          </div>
         </div>
-        <Button variant="ghost" size="icon" onClick={handleLogout}>
-          <LogOut className="w-5 h-5" />
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="ghost" size="icon" onClick={() => window.location.href = '/profile'}>
+            <User className="w-4 h-4" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={() => window.location.href = '/help'}>
+            <HelpCircle className="w-4 h-4" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={handleLogout}>
+            <LogOut className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
       <div className="p-4 space-y-6">

@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Login from "./components/Login";
 import ClockScreen from "./components/ClockScreen";
+import Profile from "./components/Profile";
+import InstallGuide from "./components/InstallGuide";
 import ProtectedRoute from "./components/ProtectedRoute";
 import NotFound from "./pages/NotFound";
 
@@ -32,6 +34,22 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <ClockScreen />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/profile" 
+              element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/help" 
+              element={
+                <ProtectedRoute>
+                  <InstallGuide />
                 </ProtectedRoute>
               } 
             />
