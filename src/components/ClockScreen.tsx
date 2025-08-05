@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -40,6 +41,7 @@ interface LocationData {
 }
 
 export default function ClockScreen() {
+  const navigate = useNavigate();
   const [worker, setWorker] = useState<Worker | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selectedJobId, setSelectedJobId] = useState('');
@@ -52,7 +54,7 @@ export default function ClockScreen() {
     // Load worker data
     const workerData = localStorage.getItem('worker');
     if (!workerData) {
-      window.location.href = '/login';
+      navigate('/login');
       return;
     }
     setWorker(JSON.parse(workerData));
@@ -342,7 +344,7 @@ export default function ClockScreen() {
   const handleLogout = async () => {
     localStorage.clear();
     await supabase.auth.signOut();
-    window.location.href = '/login';
+    navigate('/login');
   };
 
   const getElapsedTime = () => {
@@ -376,10 +378,10 @@ export default function ClockScreen() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="ghost" size="icon" onClick={() => window.location.href = '/profile'}>
+          <Button variant="ghost" size="icon" onClick={() => navigate('/profile')}>
             <User className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => window.location.href = '/help'}>
+          <Button variant="ghost" size="icon" onClick={() => navigate('/help')}>
             <HelpCircle className="w-4 h-4" />
           </Button>
           <Button variant="ghost" size="icon" onClick={handleLogout}>

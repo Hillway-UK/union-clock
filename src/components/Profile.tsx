@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
-import { User, Phone, Mail, MapPin, Clock, DollarSign, Calendar } from 'lucide-react';
+import { User, Phone, Mail, MapPin, Clock, DollarSign, Calendar, ChevronLeft } from 'lucide-react';
 
 interface Worker {
   id: string;
@@ -22,6 +23,7 @@ interface Worker {
 }
 
 export default function Profile() {
+  const navigate = useNavigate();
   const [worker, setWorker] = useState<Worker | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -140,9 +142,21 @@ export default function Profile() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4">
-      <div className="max-w-md mx-auto space-y-6">
-        <Card>
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <div className="bg-white shadow-sm px-6 py-4 flex items-center">
+        <button 
+          onClick={() => navigate('/')}
+          className="mr-4 p-1"
+        >
+          <ChevronLeft className="w-6 h-6" />
+        </button>
+        <h1 className="text-xl font-bold">My Profile</h1>
+      </div>
+
+      <div className="p-4">
+        <div className="max-w-md mx-auto space-y-6">
+          <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <User className="h-5 w-5" />
@@ -275,6 +289,7 @@ export default function Profile() {
             </div>
           </CardContent>
         </Card>
+        </div>
       </div>
     </div>
   );

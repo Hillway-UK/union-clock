@@ -1,12 +1,27 @@
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Smartphone, Download, Home, Share, Plus } from 'lucide-react';
+import { Smartphone, Download, Home, Share, Plus, ChevronLeft } from 'lucide-react';
 
 export default function InstallGuide() {
+  const navigate = useNavigate();
+
   return (
-    <div className="min-h-screen bg-background p-4">
-      <div className="max-w-md mx-auto space-y-6">
-        <Card>
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <div className="bg-white shadow-sm px-6 py-4 flex items-center">
+        <button 
+          onClick={() => navigate('/')}
+          className="mr-4 p-1"
+        >
+          <ChevronLeft className="w-6 h-6" />
+        </button>
+        <h1 className="text-xl font-bold">How To Install</h1>
+      </div>
+
+      <div className="p-4">
+        <div className="max-w-md mx-auto space-y-6">
+          <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Smartphone className="h-5 w-5" />
@@ -116,6 +131,7 @@ export default function InstallGuide() {
             </div>
           </CardContent>
         </Card>
+        </div>
       </div>
     </div>
   );
