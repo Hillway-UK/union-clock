@@ -391,6 +391,34 @@ export default function Profile() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Quick Actions */}
+        <Card className="shadow-xl backdrop-blur-sm bg-card/95 animate-slide-in-up">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <Clock className="h-6 w-6 text-primary" />
+              Quick Actions
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Button
+              onClick={() => navigate('/timesheets')}
+              variant="outline"
+              className="w-full h-12 justify-start gap-3"
+            >
+              <Clock className="h-5 w-5 text-primary" />
+              View Timesheets
+            </Button>
+            <Button
+              onClick={() => navigate('/clock')}
+              variant="outline"
+              className="w-full h-12 justify-start gap-3"
+            >
+              <ChevronLeft className="h-5 w-5 text-primary" />
+              Back to Clock
+            </Button>
+          </CardContent>
+        </Card>
         </div>
       </div>
     </div>

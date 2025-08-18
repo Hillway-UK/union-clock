@@ -748,6 +748,17 @@ export default function ClockScreen() {
             </CardContent>
           </Card>
         )}
+
+        {/* Timesheet Navigation */}
+        <Button
+          variant="secondary"
+          onClick={() => navigate('/timesheets')}
+          className="w-full"
+          size="lg"
+        >
+          <Clock className="mr-2 h-5 w-5" />
+          View Timesheets
+        </Button>
         
         {/* Expense Dialog */}
         {showExpenseDialog && (

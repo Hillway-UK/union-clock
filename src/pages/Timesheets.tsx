@@ -1,0 +1,498 @@
+import React, { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { format, startOfWeek, endOfWeek, differenceInMinutes, parseISO, addDays } from 'date-fns';
+import { Calendar, Clock, Edit2, Plus, ChevronLeft, ChevronRight, AlertCircle, DollarSign } from 'lucide-react';
+import { toast } from 'sonner';
+
+export default function Timesheets() {
+  const [entries, setEntries] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [currentWeek, setCurrentWeek] = useState(new Date());
+  const [showAmendmentDialog, setShowAmendmentDialog] = useState(false);
+  const [showExpenseDialog, setShowExpenseDialog] = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState<any>(null);
+  const [amendmentReason, setAmendmentReason] = useState('');
+  const [newClockIn, setNewClockIn] = useState('');
+  const [newClockOut, setNewClockOut] = useState('');
+  const [expenseTypes, setExpenseTypes] = useState<any[]>([]);
+  const [selectedExpenses, setSelectedExpenses] = useState<string[]>([]);
+  const [existingAmendments, setExistingAmendments] = useState<any[]>([]);
+  const [savingExpenses, setSavingExpenses] = useState(false);
+
+  // Fetch timesheet entries for current week
+  const fetchEntries = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
+    const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
+
+    const { data, error } = await supabase
+      .from('clock_entries')
+      .select(`
+        *,
+        jobs (name, code),
+        additional_costs (amount, description)
+      `)
+      .eq('worker_id', user.id)
+      .gte('clock_in', weekStart.toISOString())
+      .lte('clock_in', weekEnd.toISOString())
+      .order('clock_in', { ascending: false });
+
+    if (!error && data) {
+      setEntries(data);
+    }
+    setLoading(false);
+  };
+
+  // Fetch existing amendments
+  const fetchAmendments = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from('time_amendments')
+      .select('*')
+      .eq('worker_id', user.id);
+
+    if (data) {
+      setExistingAmendments(data);
+    }
+  };
+
+  // Fetch expense types
+  const fetchExpenseTypes = async () => {
+    const { data } = await supabase
+      .from('expense_types')
+      .select('*')
+      .eq('is_active', true)
+      .order('name');
+
+    if (data) {
+      setExpenseTypes(data);
+    }
+  };
+
+  useEffect(() => {
+    fetchEntries();
+    fetchAmendments();
+    fetchExpenseTypes();
+  }, [currentWeek]);
+
+  // Group entries by day
+  const entriesByDay = entries.reduce((acc, entry) => {
+    const day = format(parseISO(entry.clock_in), 'yyyy-MM-dd');
+    if (!acc[day]) acc[day] = [];
+    acc[day].push(entry);
+    return acc;
+  }, {} as Record<string, any[]>);
+
+  // Calculate daily and weekly totals
+  const calculateHours = (clockIn: string, clockOut: string | null) => {
+    if (!clockOut) return 0;
+    return differenceInMinutes(parseISO(clockOut), parseISO(clockIn)) / 60;
+  };
+
+  const weeklyTotal = entries.reduce((total, entry) => {
+    return total + calculateHours(entry.clock_in, entry.clock_out);
+  }, 0);
+
+  // Submit amendment request
+  const handleAmendmentSubmit = async () => {
+    if (!selectedEntry || !amendmentReason) {
+      toast.error('Please provide a reason for the amendment');
+      return;
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    const { error } = await supabase
+      .from('time_amendments')
+      .insert({
+        worker_id: user?.id,
+        clock_entry_id: selectedEntry.id,
+        requested_clock_in: newClockIn || selectedEntry.clock_in,
+        requested_clock_out: newClockOut || selectedEntry.clock_out,
+        reason: amendmentReason,
+        status: 'pending'
+      });
+
+    if (error) {
+      toast.error('Failed to submit amendment');
+    } else {
+      toast.success('Amendment request submitted for approval');
+      setShowAmendmentDialog(false);
+      setAmendmentReason('');
+      setNewClockIn('');
+      setNewClockOut('');
+      fetchAmendments();
+    }
+  };
+
+  // Add expenses to past entry
+  const handleExpenseSubmit = async () => {
+    if (selectedExpenses.length === 0) {
+      setShowExpenseDialog(false);
+      return;
+    }
+
+    setSavingExpenses(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    let successCount = 0;
+
+    for (const expenseId of selectedExpenses) {
+      const expense = expenseTypes.find(e => e.id === expenseId);
+      if (expense) {
+        const { error } = await supabase
+          .from('additional_costs')
+          .insert({
+            worker_id: user?.id,
+            clock_entry_id: selectedEntry.id,
+            date: format(parseISO(selectedEntry.clock_in), 'yyyy-MM-dd'),
+            description: expense.name,
+            amount: expense.amount,
+            cost_type: 'other',
+            expense_type_id: expenseId
+          });
+
+        if (!error) {
+          successCount++;
+        }
+      }
+    }
+
+    setSavingExpenses(false);
+    toast.success(`${successCount} expense(s) added`);
+    setShowExpenseDialog(false);
+    setSelectedExpenses([]);
+    fetchEntries();
+  };
+
+  // Check if amendment exists for entry
+  const hasAmendment = (entryId: string) => {
+    return existingAmendments.some(a => a.clock_entry_id === entryId);
+  };
+
+  const getAmendmentStatus = (entryId: string) => {
+    const amendment = existingAmendments.find(a => a.clock_entry_id === entryId);
+    return amendment?.status;
+  };
+
+  return (
+    <div className="min-h-screen bg-background p-4">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="bg-card rounded-lg shadow-sm p-4 mb-4 border border-border">
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <Calendar className="w-6 h-6 text-primary" />
+            My Timesheets
+          </h1>
+        </div>
+
+        {/* Week Navigation */}
+        <div className="bg-card rounded-lg shadow-sm p-4 mb-4 border border-border">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setCurrentWeek(addDays(currentWeek, -7))}
+              className="p-2 hover:bg-accent rounded-lg transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <div className="text-center">
+              <div className="font-semibold text-foreground">
+                {format(startOfWeek(currentWeek, { weekStartsOn: 1 }), 'MMM d')} - 
+                {format(endOfWeek(currentWeek, { weekStartsOn: 1 }), ' MMM d, yyyy')}
+              </div>
+              <div className="text-sm text-muted-foreground mt-1">
+                Total Hours: {weeklyTotal.toFixed(2)}
+              </div>
+            </div>
+            <button
+              onClick={() => setCurrentWeek(addDays(currentWeek, 7))}
+              className="p-2 hover:bg-accent rounded-lg transition-colors"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Timesheet Entries */}
+        {loading ? (
+          <div className="bg-card rounded-lg shadow-sm p-8 text-center border border-border">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+            <p className="mt-4 text-muted-foreground">Loading timesheet...</p>
+          </div>
+        ) : Object.keys(entriesByDay).length === 0 ? (
+          <div className="bg-card rounded-lg shadow-sm p-8 text-center border border-border">
+            <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">No entries for this week</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {Object.entries(entriesByDay).map(([day, dayEntries]) => (
+              <div key={day} className="bg-card rounded-lg shadow-sm overflow-hidden border border-border">
+                <div className="bg-muted/50 px-4 py-2 border-b border-border">
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold text-foreground">{format(parseISO(day), 'EEEE, MMM d')}</span>
+                     <span className="text-sm text-muted-foreground">
+                       {(dayEntries as any[]).reduce((total: number, entry: any) => 
+                         total + calculateHours(entry.clock_in, entry.clock_out), 0
+                       ).toFixed(2)} hours
+                     </span>
+                  </div>
+                </div>
+                
+                 <div className="divide-y divide-border">
+                   {(dayEntries as any[]).map((entry: any) => (
+                    <div key={entry.id} className="p-4 hover:bg-muted/30 transition-colors">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="font-medium text-foreground">
+                            {entry.jobs?.name} ({entry.jobs?.code})
+                          </div>
+                          <div className="text-sm text-muted-foreground mt-1">
+                            <span className="inline-flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {format(parseISO(entry.clock_in), 'HH:mm')} - 
+                              {entry.clock_out ? format(parseISO(entry.clock_out), ' HH:mm') : ' Active'}
+                            </span>
+                            {entry.clock_out && (
+                              <span className="ml-3 font-medium">
+                                ({calculateHours(entry.clock_in, entry.clock_out).toFixed(2)} hrs)
+                              </span>
+                            )}
+                          </div>
+                          
+                          {/* Show expenses */}
+                          {entry.additional_costs && Array.isArray(entry.additional_costs) && entry.additional_costs.length > 0 && (
+                            <div className="mt-2 text-sm text-primary">
+                              {entry.additional_costs.length} expense(s) - 
+                              £{(entry.additional_costs as any[]).reduce((sum: number, cost: any) => 
+                                sum + parseFloat(cost.amount), 0
+                              ).toFixed(2)}
+                            </div>
+                          )}
+
+                          {/* Show amendment status */}
+                          {hasAmendment(entry.id) && (
+                            <div className="mt-2">
+                              <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full
+                                ${getAmendmentStatus(entry.id) === 'pending' ? 'bg-warning/20 text-warning-foreground' : 
+                                  getAmendmentStatus(entry.id) === 'approved' ? 'bg-success/20 text-success-foreground' : 
+                                  'bg-error/20 text-error-foreground'}`}>
+                                <AlertCircle className="w-3 h-3" />
+                                Amendment {getAmendmentStatus(entry.id)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {entry.clock_out && (
+                          <div className="flex gap-2 ml-4">
+                            <button
+                              onClick={() => {
+                                setSelectedEntry(entry);
+                                setNewClockIn(entry.clock_in);
+                                setNewClockOut(entry.clock_out);
+                                setShowAmendmentDialog(true);
+                              }}
+                              disabled={hasAmendment(entry.id)}
+                              className="p-2 text-muted-foreground hover:bg-accent rounded-lg transition-colors disabled:opacity-50"
+                              title="Request Amendment"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedEntry(entry);
+                                setShowExpenseDialog(true);
+                              }}
+                              className="p-2 text-muted-foreground hover:bg-accent rounded-lg transition-colors"
+                              title="Add Expenses"
+                            >
+                              <DollarSign className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Amendment Dialog */}
+        {showAmendmentDialog && selectedEntry && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-card rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto border border-border">
+              <h3 className="text-lg font-semibold mb-4 text-foreground">Request Time Amendment</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    Current Clock In
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={format(parseISO(selectedEntry.clock_in), "yyyy-MM-dd'T'HH:mm")}
+                    disabled
+                    className="w-full px-3 py-2 border border-input rounded-lg bg-muted"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    New Clock In
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={format(parseISO(newClockIn), "yyyy-MM-dd'T'HH:mm")}
+                    onChange={(e) => setNewClockIn(new Date(e.target.value).toISOString())}
+                    className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+                
+                {selectedEntry.clock_out && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-1">
+                        Current Clock Out
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={format(parseISO(selectedEntry.clock_out), "yyyy-MM-dd'T'HH:mm")}
+                        disabled
+                        className="w-full px-3 py-2 border border-input rounded-lg bg-muted"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-1">
+                        New Clock Out
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={format(parseISO(newClockOut), "yyyy-MM-dd'T'HH:mm")}
+                        onChange={(e) => setNewClockOut(new Date(e.target.value).toISOString())}
+                        className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-ring"
+                      />
+                    </div>
+                  </>
+                )}
+                
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    Reason for Amendment <span className="text-destructive">*</span>
+                  </label>
+                  <textarea
+                    value={amendmentReason}
+                    onChange={(e) => setAmendmentReason(e.target.value)}
+                    placeholder="Please explain why this amendment is needed..."
+                    className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-ring"
+                    rows={3}
+                  />
+                </div>
+              </div>
+              
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={handleAmendmentSubmit}
+                  disabled={!amendmentReason}
+                  className="flex-1 bg-primary text-primary-foreground py-3 rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                >
+                  Submit Request
+                </button>
+                <button
+                  onClick={() => {
+                    setShowAmendmentDialog(false);
+                    setAmendmentReason('');
+                  }}
+                  className="px-6 py-3 border border-border rounded-lg hover:bg-accent transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Expense Dialog */}
+        {showExpenseDialog && selectedEntry && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-card rounded-lg p-6 max-w-md w-full max-h-[80vh] overflow-y-auto border border-border">
+              <h3 className="text-lg font-semibold mb-4 text-foreground">Add Expenses</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Add expenses for {format(parseISO(selectedEntry.clock_in), 'MMM d, yyyy')}
+              </p>
+              
+              <div className="space-y-2 mb-6">
+                {expenseTypes && expenseTypes.map && expenseTypes.map((expense: any) => (
+                  <label key={expense.id} className="flex items-center p-3 border border-border rounded-lg hover:bg-muted/50 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="mr-3 w-4 h-4"
+                      checked={selectedExpenses.includes(expense.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedExpenses([...selectedExpenses, expense.id]);
+                        } else {
+                          setSelectedExpenses(selectedExpenses.filter(id => id !== expense.id));
+                        }
+                      }}
+                    />
+                    <div className="flex-1">
+                      <div className="font-medium text-foreground">{expense.name}</div>
+                      <div className="text-sm text-muted-foreground">£{expense.amount.toFixed(2)}</div>
+                      {expense.description && (
+                        <div className="text-xs text-muted-foreground mt-1">{expense.description}</div>
+                      )}
+                    </div>
+                  </label>
+                ))}
+              </div>
+              
+              {selectedExpenses.length > 0 && (
+                <div className="p-3 bg-primary/10 rounded-lg mb-4">
+                  <div className="flex justify-between font-medium text-foreground">
+                    <span>Total:</span>
+                    <span>£{selectedExpenses.reduce((sum: number, id: string) => {
+                      const expense = expenseTypes.find(e => e.id === id);
+                      return sum + (expense?.amount || 0);
+                    }, 0).toFixed(2)}</span>
+                  </div>
+                </div>
+              )}
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={handleExpenseSubmit}
+                  disabled={savingExpenses}
+                  className={`flex-1 py-3 rounded-lg font-medium transition-colors ${
+                    savingExpenses 
+                      ? 'bg-muted cursor-not-allowed' 
+                      : 'bg-primary hover:bg-primary/90 text-primary-foreground'
+                  }`}
+                >
+                  {savingExpenses ? 'Saving...' : selectedExpenses.length > 0 ? `Add ${selectedExpenses.length} Expense(s)` : 'Cancel'}
+                </button>
+                {selectedExpenses.length > 0 && !savingExpenses && (
+                  <button
+                    onClick={() => {
+                      setShowExpenseDialog(false);
+                      setSelectedExpenses([]);
+                    }}
+                    className="px-6 py-3 border border-border rounded-lg hover:bg-accent transition-colors"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

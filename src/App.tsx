@@ -8,6 +8,7 @@ import ClockScreen from "./components/ClockScreen";
 import Profile from "./components/Profile";
 import InstallGuide from "./components/InstallGuide";
 import ProtectedRoute from "./components/ProtectedRoute";
+import Timesheets from "./pages/Timesheets";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -50,6 +51,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <InstallGuide />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/timesheets" 
+              element={
+                <ProtectedRoute>
+                  <Timesheets />
                 </ProtectedRoute>
               } 
             />
