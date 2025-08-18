@@ -20,6 +20,7 @@ export default function Timesheets() {
   const [selectedExpenses, setSelectedExpenses] = useState<string[]>([]);
   const [existingAmendments, setExistingAmendments] = useState<any[]>([]);
   const [savingExpenses, setSavingExpenses] = useState(false);
+  const [workerHourlyRate, setWorkerHourlyRate] = useState<number>(0);
 
   // Fetch timesheet entries for current week
   const fetchEntries = async () => {
@@ -34,7 +35,7 @@ export default function Timesheets() {
       // First get worker profile by email
       const { data: workerData, error: workerError } = await supabase
         .from('workers')
-        .select('id')
+        .select('id, hourly_rate')
         .eq('email', user.email)
         .single();
 
@@ -44,6 +45,8 @@ export default function Timesheets() {
         setLoading(false);
         return;
       }
+
+      setWorkerHourlyRate(workerData.hourly_rate || 0);
 
       const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
       const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
@@ -140,6 +143,44 @@ export default function Timesheets() {
   const weeklyTotal = entries.reduce((total, entry) => {
     return total + calculateHours(entry.clock_in, entry.clock_out);
   }, 0);
+
+  // Calculate pay totals
+  const calculateWeeklyHoursPay = () => weeklyTotal * workerHourlyRate;
+  
+  const calculateWeeklyExpenses = () => {
+    return entries.reduce((total, entry) => {
+      if (entry.additional_costs && Array.isArray(entry.additional_costs)) {
+        return total + entry.additional_costs.reduce((sum: number, cost: any) => 
+          sum + parseFloat(cost.amount), 0);
+      }
+      return total;
+    }, 0);
+  };
+
+  const calculateWeeklyTotalPay = () => calculateWeeklyHoursPay() + calculateWeeklyExpenses();
+
+  const calculateDayHours = (dayEntries: any[]) => {
+    return dayEntries.reduce((total, entry) => 
+      total + calculateHours(entry.clock_in, entry.clock_out), 0);
+  };
+
+  const calculateDayHoursPay = (dayEntries: any[]) => {
+    return calculateDayHours(dayEntries) * workerHourlyRate;
+  };
+
+  const calculateDayExpenses = (dayEntries: any[]) => {
+    return dayEntries.reduce((total, entry) => {
+      if (entry.additional_costs && Array.isArray(entry.additional_costs)) {
+        return total + entry.additional_costs.reduce((sum: number, cost: any) => 
+          sum + parseFloat(cost.amount), 0);
+      }
+      return total;
+    }, 0);
+  };
+
+  const calculateDayTotalPay = (dayEntries: any[]) => {
+    return calculateDayHoursPay(dayEntries) + calculateDayExpenses(dayEntries);
+  };
 
   // Submit amendment request
   const handleAmendmentSubmit = async () => {
@@ -297,7 +338,10 @@ export default function Timesheets() {
                 {format(endOfWeek(currentWeek, { weekStartsOn: 1 }), ' MMM d, yyyy')}
               </div>
               <div className="text-sm text-muted-foreground mt-1">
-                Total Hours: {weeklyTotal.toFixed(2)}
+                Total Hours: {weeklyTotal.toFixed(2)} | Total Pay: £{calculateWeeklyTotalPay().toFixed(2)}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Hours: £{calculateWeeklyHoursPay().toFixed(2)} + Expenses: £{calculateWeeklyExpenses().toFixed(2)}
               </div>
             </div>
             <button
@@ -327,11 +371,14 @@ export default function Timesheets() {
                 <div className="bg-muted/50 px-4 py-2 border-b border-border">
                   <div className="flex justify-between items-center">
                     <span className="font-semibold text-foreground">{format(parseISO(day), 'EEEE, MMM d')}</span>
-                     <span className="text-sm text-muted-foreground">
-                       {(dayEntries as any[]).reduce((total: number, entry: any) => 
-                         total + calculateHours(entry.clock_in, entry.clock_out), 0
-                       ).toFixed(2)} hours
-                     </span>
+                    <div className="text-right">
+                      <div className="text-sm text-muted-foreground">
+                        {calculateDayHours(dayEntries as any[]).toFixed(2)} hours | £{calculateDayTotalPay(dayEntries as any[]).toFixed(2)} total
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Hours: £{calculateDayHoursPay(dayEntries as any[]).toFixed(2)} + Expenses: £{calculateDayExpenses(dayEntries as any[]).toFixed(2)}
+                      </div>
+                    </div>
                   </div>
                 </div>
                 
