@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { toast } from 'sonner';
 import { User, Phone, Mail, MapPin, Clock, DollarSign, Calendar, ChevronLeft, Camera, Award, Briefcase, Construction } from 'lucide-react';
+import { PioneerLogo } from '@/components/PioneerLogo';
 
 interface Worker {
   id: string;
@@ -200,7 +201,7 @@ export default function Profile() {
   return (
     <div className="min-h-screen bg-gradient-background">
       {/* Header */}
-      <header className="bg-gradient-to-r from-[#1E3A5F] to-[#FF6B35] text-white p-4 shadow-lg">
+      <header className="bg-gradient-to-r from-[#702D30] to-[#420808] text-white p-4 shadow-lg">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <button 
@@ -209,8 +210,8 @@ export default function Profile() {
             >
               <ChevronLeft className="w-6 h-6 text-white" />
             </button>
-            <Construction className="w-6 h-6" />
-            <span className="font-bold text-xl">My Profile</span>
+            <PioneerLogo className="h-8 brightness-0 invert" />
+            <span className="font-heading font-bold text-xl">My Profile</span>
           </div>
         </div>
       </header>
@@ -218,25 +219,25 @@ export default function Profile() {
       <div className="p-4">
         <div className="max-w-md mx-auto space-y-6">
           {/* Company Branding */}
-          <div className="bg-white p-4 rounded-lg shadow-sm mb-6 text-center border-l-4 border-[#FF6B35]">
-            <h3 className="text-[#1E3A5F] font-bold text-lg">Pioneer Construction Services</h3>
-            <p className="text-[#4A5568] text-sm">Auto Timesheets System</p>
+          <div className="bg-white p-4 rounded-lg shadow-sm mb-6 text-center border-l-4 border-[#702D30]">
+            <h3 className="font-heading font-bold text-lg text-[#111111]">Pioneer Construction Services</h3>
+            <p className="font-body text-sm text-[#111111]">Auto Timesheets System</p>
           </div>
 
           {/* Worker Avatar & Stats */}
-          <Card className="shadow-xl backdrop-blur-sm bg-card/95 animate-slide-in-up border-l-4 border-[#FF6B35]">
+          <Card className="shadow-xl backdrop-blur-sm bg-card/95 animate-slide-in-up border-l-4 border-[#702D30]">
             <CardContent className="pt-6">
               <div className="text-center mb-6">
               <div className="relative mx-auto w-24 h-24 mb-4">
-                <div className="w-24 h-24 bg-gradient-to-r from-[#1E3A5F] to-[#FF6B35] rounded-full flex items-center justify-center shadow-lg">
+                <div className="w-24 h-24 bg-gradient-to-r from-[#702D30] to-[#420808] rounded-full flex items-center justify-center shadow-lg">
                   <User className="w-12 h-12 text-white" />
                 </div>
                   <button className="absolute -bottom-1 -right-1 p-2 bg-accent rounded-full shadow-md border-2 border-card hover:bg-accent/80 transition-colors">
                     <Camera className="w-4 h-4" />
                   </button>
                 </div>
-                <h2 className="text-2xl font-bold">{worker.name}</h2>
-                <p className="text-muted-foreground">{worker.email}</p>
+                <h2 className="text-2xl font-heading font-bold text-[#111111]">{worker.name}</h2>
+                <p className="font-body text-muted-foreground">{worker.email}</p>
               </div>
 
               {/* Stats Grid */}
@@ -309,7 +310,7 @@ export default function Profile() {
                     variant="outline" 
                     size="sm" 
                     onClick={() => setEditing(true)}
-                    className="border-2 border-[#FF6B35] text-[#FF6B35] hover:bg-[#FF6B35] hover:text-white transition-colors duration-200"
+                    className="border-2 border-[#702D30] text-[#702D30] hover:bg-[#702D30] hover:text-white transition-colors duration-200"
                   >
                     Edit
                   </Button>
@@ -385,7 +386,7 @@ export default function Profile() {
                   <Button 
                     onClick={handleSave} 
                     disabled={loading} 
-                    className="flex-1 h-12 bg-[#FF6B35] hover:bg-[#E85A2A] text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                    className="flex-1 h-12 bg-[#702D30] hover:bg-[#420808] text-white font-heading font-semibold shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
                   >
                     {loading ? 'Saving...' : 'Save Changes'}
                   </Button>
@@ -415,7 +416,7 @@ export default function Profile() {
             <Button
               onClick={() => navigate('/timesheets')}
               variant="outline"
-              className="w-full h-12 justify-start gap-3 border-2 border-[#FF6B35] text-[#FF6B35] hover:bg-[#FF6B35] hover:text-white"
+              className="w-full h-12 justify-start gap-3 bg-[#702D30] hover:bg-[#420808] text-white font-heading font-semibold"
             >
               <Clock className="h-5 w-5" />
               View Timesheets
@@ -423,7 +424,7 @@ export default function Profile() {
             <Button
               onClick={() => navigate('/clock')}
               variant="outline"
-              className="w-full h-12 justify-start gap-3 border-2 border-[#1E3A5F] text-[#1E3A5F] hover:bg-[#1E3A5F] hover:text-white"
+              className="w-full h-12 justify-start gap-3 bg-[#111111] hover:bg-[#939393] text-white font-heading font-semibold"
             >
               <ChevronLeft className="h-5 w-5" />
               Back to Clock

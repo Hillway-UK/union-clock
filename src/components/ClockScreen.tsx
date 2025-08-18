@@ -577,16 +577,12 @@ export default function ClockScreen() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-gradient-to-r from-[#1E3A5F] to-[#FF6B35] text-white p-4 shadow-lg">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Construction className="w-6 h-6" />
-            <div>
-              <span className="font-bold text-xl">Pioneer Auto Timesheets</span>
-              <p className="text-xs text-white/80">{worker.name}</p>
-            </div>
-          </div>
-          <div className="flex gap-2">
+      <header className="bg-gradient-to-r from-[#702D30] to-[#420808] text-white p-4 shadow-lg">
+        <div className="max-w-7xl mx-auto">
+          <PioneerLogo className="h-10 brightness-0 invert" />
+          <h1 className="font-heading font-extrabold text-xl mt-2">Auto Timesheets</h1>
+          <p className="font-body text-xs text-white/80">{worker.name}</p>
+          <div className="flex gap-2 mt-2 float-right -mt-16">
             <Button 
               variant="ghost" 
               size="icon" 
@@ -612,12 +608,12 @@ export default function ClockScreen() {
 
       <div className="p-4 space-y-6">
         {/* Current Time */}
-        <Card className="border-l-4 border-[#FF6B35] shadow-md hover:shadow-lg transition-shadow">
-          <CardContent className="p-4 text-center bg-[#1E3A5F] text-white">
-            <div className="text-2xl font-mono font-bold">
+        <Card className="border-l-4 border-[#702D30] shadow-md hover:shadow-lg transition-shadow">
+          <CardContent className="p-4 text-center bg-[#111111] text-white">
+            <div className="text-2xl font-heading font-bold">
               {currentTime.toLocaleTimeString()}
             </div>
-            <div className="text-sm text-white/80">
+            <div className="text-sm text-white/80 font-body">
               {currentTime.toLocaleDateString()}
             </div>
           </CardContent>
@@ -631,12 +627,12 @@ export default function ClockScreen() {
             {currentEntry ? (
               <>
                 <Clock className="w-16 h-16 mx-auto mb-4 text-green-600" />
-                <h2 className="text-2xl font-bold text-green-800 mb-2">CLOCKED IN</h2>
-                <p className="text-lg font-medium text-foreground">{currentEntry.jobs.name}</p>
-                <p className="text-sm text-muted-foreground mt-1">
+                <h2 className="text-2xl font-heading font-bold text-green-800 mb-2">CLOCKED IN</h2>
+                <p className="text-lg font-body font-medium text-foreground">{currentEntry.jobs.name}</p>
+                <p className="text-sm font-body text-muted-foreground mt-1">
                   Since {new Date(currentEntry.clock_in).toLocaleTimeString()}
                 </p>
-                <p className="text-lg font-bold text-green-600 mt-2">
+                <p className="text-lg font-heading font-bold text-green-600 mt-2">
                   {getElapsedTime()}
                 </p>
                 {currentShiftExpenses.length > 0 && (
@@ -650,8 +646,8 @@ export default function ClockScreen() {
             ) : (
               <>
                 <Clock className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-                <h2 className="text-2xl font-bold text-muted-foreground">CLOCKED OUT</h2>
-                <p className="text-sm text-muted-foreground mt-2">Ready to start work</p>
+                <h2 className="text-2xl font-heading font-bold text-muted-foreground">CLOCKED OUT</h2>
+                <p className="text-sm font-body text-muted-foreground mt-2">Ready to start work</p>
               </>
             )}
           </CardContent>
@@ -675,7 +671,7 @@ export default function ClockScreen() {
             <Button
               onClick={handleClockOut}
               disabled={loading}
-              className="w-full py-6 bg-[#1E3A5F] hover:bg-[#152B47] text-white font-bold text-xl rounded-lg shadow-lg transition-all duration-200 transform hover:scale-105"
+              className="w-full py-6 bg-[#420808] hover:bg-[#702D30] text-white font-heading font-bold text-xl rounded-lg shadow-lg transition-all duration-200"
             >
               {loading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
               <Camera className="mr-2 h-5 w-5" />
@@ -686,7 +682,7 @@ export default function ClockScreen() {
               <Card>
                 <CardContent className="p-4">
                   <div className="flex justify-between items-center mb-2">
-                    <label className="text-sm font-medium text-foreground">
+                    <label className="text-sm font-body font-medium text-foreground">
                       Select Job Site
                     </label>
                     <Button
@@ -722,7 +718,7 @@ export default function ClockScreen() {
               <Button
                 onClick={handleClockIn}
                 disabled={loading || !selectedJobId || !location}
-                className="w-full py-6 bg-[#FF6B35] hover:bg-[#E85A2A] text-white font-bold text-xl rounded-lg shadow-lg transition-all duration-200 transform hover:scale-105"
+                className="w-full py-6 bg-[#702D30] hover:bg-[#420808] text-white font-heading font-bold text-xl rounded-lg shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
               >
                 {loading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
                 <Camera className="mr-2 h-5 w-5" />
@@ -750,7 +746,7 @@ export default function ClockScreen() {
         <Button
           variant="outline"
           onClick={() => navigate('/timesheets')}
-          className="w-full border-2 border-[#FF6B35] text-[#FF6B35] hover:bg-[#FF6B35] hover:text-white shadow-md hover:shadow-lg transition-all duration-200"
+          className="w-full border-2 border-[#702D30] text-[#702D30] hover:bg-[#702D30] hover:text-white font-heading font-semibold shadow-md hover:shadow-lg transition-all duration-200"
           size="lg"
         >
           <Clock className="mr-2 h-5 w-5" />

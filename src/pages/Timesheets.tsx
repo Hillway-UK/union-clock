@@ -307,7 +307,7 @@ export default function Timesheets() {
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <header className="bg-gradient-to-r from-[#1E3A5F] to-[#FF6B35] text-white p-4 shadow-lg rounded-lg mb-4">
+        <header className="bg-gradient-to-r from-[#702D30] to-[#420808] text-white p-4 shadow-lg rounded-lg mb-4">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <button
@@ -318,35 +318,35 @@ export default function Timesheets() {
                 <ArrowLeft className="w-5 h-5 text-white" />
               </button>
               <Construction className="w-6 h-6" />
-              <span className="font-bold text-xl">Pioneer Auto Timesheets</span>
+              <span className="font-heading font-bold text-xl">Pioneer Auto Timesheets</span>
             </div>
           </div>
         </header>
 
         {/* Week Navigation */}
-        <div className="bg-card rounded-lg shadow-sm p-4 mb-4 border border-border border-l-4 border-[#FF6B35]">
+        <div className="bg-card rounded-lg shadow-sm p-4 mb-4 border border-border border-l-4 border-[#702D30]">
           <div className="flex items-center justify-between">
             <button
               onClick={() => setCurrentWeek(addDays(currentWeek, -7))}
-              className="p-2 bg-[#FF6B35] hover:bg-[#E85A2A] text-white rounded-lg transition-colors shadow-md"
+              className="p-2 bg-[#702D30] hover:bg-[#420808] text-white rounded-lg transition-colors shadow-md"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
             <div className="text-center">
-              <div className="font-semibold text-foreground">
+              <div className="font-heading font-semibold text-foreground">
                 {format(startOfWeek(currentWeek, { weekStartsOn: 1 }), 'MMM d')} - 
                 {format(endOfWeek(currentWeek, { weekStartsOn: 1 }), ' MMM d, yyyy')}
               </div>
-              <div className="text-sm text-muted-foreground mt-1">
+              <div className="text-sm font-body text-muted-foreground mt-1">
                 Total Hours: {weeklyTotal.toFixed(2)} | Total Pay: £{calculateWeeklyTotalPay().toFixed(2)}
               </div>
-              <div className="text-xs text-muted-foreground">
+              <div className="text-xs font-body text-muted-foreground">
                 Hours: £{calculateWeeklyHoursPay().toFixed(2)} + Expenses: £{calculateWeeklyExpenses().toFixed(2)}
               </div>
             </div>
             <button
               onClick={() => setCurrentWeek(addDays(currentWeek, 7))}
-              className="p-2 bg-[#FF6B35] hover:bg-[#E85A2A] text-white rounded-lg transition-colors shadow-md"
+              className="p-2 bg-[#702D30] hover:bg-[#420808] text-white rounded-lg transition-colors shadow-md"
             >
               <ChevronRight className="w-5 h-5" />
             </button>
@@ -367,15 +367,15 @@ export default function Timesheets() {
         ) : (
           <div className="space-y-4">
             {Object.entries(entriesByDay).map(([day, dayEntries]) => (
-              <div key={day} className="bg-card rounded-lg shadow-sm overflow-hidden border border-border border-l-4 border-[#FF6B35]">
-                <div className="bg-gradient-to-r from-[#1E3A5F] to-[#FF6B35] text-white px-4 py-2 border-b border-border">
+              <div key={day} className="bg-card rounded-lg shadow-sm overflow-hidden border border-border border-l-4 border-[#702D30]">
+                <div className="bg-gradient-to-r from-[#111111] to-[#939393] text-white px-4 py-2 border-b border-border">
                   <div className="flex justify-between items-center">
-                    <span className="font-semibold text-white">{format(parseISO(day), 'EEEE, MMM d')}</span>
+                    <span className="font-heading font-bold text-white">{format(parseISO(day), 'EEEE, MMM d')}</span>
                     <div className="text-right">
-                      <div className="text-sm text-white/90">
+                      <div className="text-sm font-body text-white/90">
                         {calculateDayHours(dayEntries as any[]).toFixed(2)} hours | £{calculateDayTotalPay(dayEntries as any[]).toFixed(2)} total
                       </div>
-                      <div className="text-xs text-white/80">
+                      <div className="text-xs font-body text-white/80">
                         Hours: £{calculateDayHoursPay(dayEntries as any[]).toFixed(2)} + Expenses: £{calculateDayExpenses(dayEntries as any[]).toFixed(2)}
                       </div>
                     </div>
@@ -387,21 +387,21 @@ export default function Timesheets() {
                     <div key={entry.id} className="p-4 hover:bg-muted/30 transition-colors">
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
-                          <div className="font-medium text-foreground">
-                            {entry.jobs?.name} ({entry.jobs?.code})
-                          </div>
-                          <div className="text-sm text-muted-foreground mt-1">
-                            <span className="inline-flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {format(parseISO(entry.clock_in), 'HH:mm')} - 
-                              {entry.clock_out ? format(parseISO(entry.clock_out), ' HH:mm') : ' Active'}
-                            </span>
-                            {entry.clock_out && (
-                              <span className="ml-3 font-medium">
-                                ({calculateHours(entry.clock_in, entry.clock_out).toFixed(2)} hrs)
-                              </span>
-                            )}
-                          </div>
+                           <div className="font-body font-medium text-foreground">
+                             {entry.jobs?.name} ({entry.jobs?.code})
+                           </div>
+                           <div className="text-sm font-body text-muted-foreground mt-1">
+                             <span className="inline-flex items-center gap-1">
+                               <Clock className="w-3 h-3" />
+                               {format(parseISO(entry.clock_in), 'HH:mm')} - 
+                               {entry.clock_out ? format(parseISO(entry.clock_out), ' HH:mm') : ' Active'}
+                             </span>
+                             {entry.clock_out && (
+                               <span className="ml-3 font-heading font-medium">
+                                 ({calculateHours(entry.clock_in, entry.clock_out).toFixed(2)} hrs)
+                               </span>
+                             )}
+                           </div>
                           
                           {/* Show expenses */}
                           {entry.additional_costs && Array.isArray(entry.additional_costs) && entry.additional_costs.length > 0 && (
@@ -413,37 +413,37 @@ export default function Timesheets() {
                             </div>
                           )}
 
-                          {/* Show amendment status */}
-                          {hasAmendment(entry.id) && (
-                            <div className="mt-2">
-                              <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full
-                               ${getAmendmentStatus(entry.id) === 'pending' ? 'bg-[#FF6B35]/20 text-[#FF6B35]' : 
-                                  getAmendmentStatus(entry.id) === 'approved' ? 'bg-[#48BB78]/20 text-[#48BB78]' : 
-                                  'bg-[#F56565]/20 text-[#F56565]'}`}>
-                                <AlertCircle className="w-3 h-3" />
-                                Amendment {getAmendmentStatus(entry.id)}
-                              </span>
-                            </div>
-                          )}
+                           {/* Show amendment status */}
+                           {hasAmendment(entry.id) && (
+                             <div className="mt-2">
+                               <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full
+                                ${getAmendmentStatus(entry.id) === 'pending' ? 'bg-[#ED8936]/20 text-[#ED8936]' : 
+                                   getAmendmentStatus(entry.id) === 'approved' ? 'bg-[#48BB78]/20 text-[#48BB78]' : 
+                                   'bg-[#F56565]/20 text-[#F56565]'}`}>
+                                 <AlertCircle className="w-3 h-3" />
+                                 Amendment {getAmendmentStatus(entry.id)}
+                               </span>
+                             </div>
+                           )}
                         </div>
                         
                         {entry.clock_out && (
                           <div className="flex gap-2 ml-4">
-                            <button
-                              onClick={() => {
-                                setSelectedEntry(entry);
-                                setNewClockIn(entry.clock_in);
-                                setNewClockOut(entry.clock_out);
-                                setShowAmendmentDialog(true);
-                              }}
-                              disabled={hasAmendment(entry.id)}
-                              className="p-2 text-[#FF6B35] hover:bg-orange-50 rounded-lg transition-colors disabled:opacity-50"
-                              title="Request Amendment"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => {
+                             <button
+                               onClick={() => {
+                                 setSelectedEntry(entry);
+                                 setNewClockIn(entry.clock_in);
+                                 setNewClockOut(entry.clock_out);
+                                 setShowAmendmentDialog(true);
+                               }}
+                               disabled={hasAmendment(entry.id)}
+                               className="p-2 text-[#702D30] hover:bg-[#702D30]/10 font-heading font-semibold rounded-lg transition-colors disabled:opacity-50"
+                               title="Request Amendment"
+                             >
+                               <Edit2 className="w-4 h-4" />
+                             </button>
+                             <button
+                               onClick={() => {
                                 setSelectedEntry(entry);
                                 setShowExpenseDialog(true);
                               }}

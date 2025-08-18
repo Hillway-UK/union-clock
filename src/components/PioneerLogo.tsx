@@ -1,20 +1,19 @@
-import { Construction } from 'lucide-react';
+import React from 'react';
 
-export const PioneerLogo = () => (
-  <div className="flex items-center space-x-2">
-    <div className="w-10 h-10 bg-[#FF6B35] rounded-lg flex items-center justify-center shadow-lg">
-      <Construction className="w-6 h-6 text-white" />
+export const PioneerLogo = ({ className = "h-12" }: { className?: string }) => (
+  <div className={`flex items-center space-x-3 ${className}`}>
+    <div className="flex space-x-1">
+      <div className="w-2 h-8 bg-[#702D30]"></div>
+      <div className="w-2 h-10 bg-[#702D30]"></div>
+      <div className="w-2 h-12 bg-[#702D30]"></div>
+      <div className="flex flex-col space-y-1">
+        <div className="w-8 h-2 bg-[#702D30]"></div>
+        <div className="w-6 h-2 bg-[#702D30]"></div>
+      </div>
     </div>
-    <div className="flex flex-col">
-      <span className="text-[#1E3A5F] font-bold text-sm leading-tight">PIONEER</span>
-      <span className="text-[#FF6B35] text-xs leading-tight">AUTO TIMESHEETS</span>
+    <div>
+      <div className="font-heading font-extrabold text-2xl text-[#702D30]">PIONEER</div>
+      <div className="font-body text-xs text-[#111111] tracking-widest -mt-1">CONSTRUCTION</div>
     </div>
-  </div>
-);
-
-export const PioneerLogoBrand = () => (
-  <div className="w-48 h-24 bg-white rounded-lg shadow-md flex items-center justify-center">
-    <span className="text-[#1E3A5F] font-bold text-xl">PIONEER</span>
-    <span className="text-[#FF6B35] font-bold text-xl ml-2">CONSTRUCTION</span>
   </div>
 );

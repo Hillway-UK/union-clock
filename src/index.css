@@ -40,55 +40,58 @@ All colors MUST be HSL.
 @layer base {
   :root {
     --background: 0 0% 98%;
-    --foreground: 213 31% 15%;
+    --foreground: 0 0% 7%; /* Pioneer Charcoal */
 
     --card: 0 0% 100%;
-    --card-foreground: 213 31% 15%;
+    --card-foreground: 0 0% 7%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 213 31% 15%;
+    --popover-foreground: 0 0% 7%;
 
-    --primary: 16 85% 60%; /* Pioneer Orange #FF6B35 */
+    --primary: 354 34% 31%; /* Pioneer Burgundy #702D30 */
     --primary-foreground: 0 0% 100%;
-    --primary-dark: 16 85% 45%;
-    --pioneer-orange: 16 85% 60%;
-    --pioneer-navy: 209 55% 25%; /* #1E3A5F */
-    --pioneer-grey: 215 10% 31%; /* #4A5568 */
-    --pioneer-light-grey: 210 31% 80%; /* #E2E8F0 */
-    --pioneer-success: 142 76% 36%;
-    --pioneer-danger: 0 84% 60%;
+    --primary-dark: 11 67% 15%; /* Pioneer Deep Burgundy #420808 */
+    --pioneer-burgundy: 354 34% 31%; /* #702D30 */
+    --pioneer-deep-burgundy: 11 67% 15%; /* #420808 */
+    --pioneer-charcoal: 0 0% 7%; /* #111111 */
+    --pioneer-mid-grey: 0 0% 58%; /* #939393 */
+    --pioneer-light-grey: 0 0% 92%; /* #EAEAEA */
+    --pioneer-white: 0 0% 100%; /* #FFFFFF */
+    --pioneer-success: 146 52% 50%; /* #48BB78 */
+    --pioneer-danger: 4 90% 62%; /* #F56565 */
+    --pioneer-warning: 25 95% 57%; /* #ED8936 */
 
-    --secondary: 210 40% 94%;
-    --secondary-foreground: 213 31% 15%;
+    --secondary: 0 0% 92%; /* Pioneer Light Grey */
+    --secondary-foreground: 0 0% 7%;
 
-    --muted: 210 40% 94%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 0 0% 92%;
+    --muted-foreground: 0 0% 58%;
 
-    --accent: 210 40% 94%;
-    --accent-foreground: 213 31% 15%;
+    --accent: 0 0% 92%;
+    --accent-foreground: 0 0% 7%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 4 90% 62%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 217 91% 60%;
+    --border: 0 0% 92%;
+    --input: 0 0% 92%;
+    --ring: 354 34% 31%;
 
     --radius: 0.75rem;
 
     /* Clock app specific colors */
-    --success: 142 76% 36%;
+    --success: 146 52% 50%;
     --success-foreground: 0 0% 100%;
-    --warning: 48 96% 53%;
-    --warning-foreground: 0 0% 0%;
-    --error: 0 84% 60%;
+    --warning: 25 95% 57%;
+    --warning-foreground: 0 0% 7%;
+    --error: 4 90% 62%;
     --error-foreground: 0 0% 100%;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(var(--pioneer-orange)), hsl(var(--primary-dark)));
-    --gradient-success: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 76% 28%));
-    --gradient-error: linear-gradient(135deg, hsl(0 84% 60%), hsl(0 84% 50%));
-    --gradient-background: linear-gradient(135deg, hsl(var(--pioneer-navy)), hsl(var(--pioneer-orange)));
+    --gradient-primary: linear-gradient(135deg, hsl(var(--pioneer-burgundy)), hsl(var(--pioneer-deep-burgundy)));
+    --gradient-success: linear-gradient(135deg, hsl(146 52% 50%), hsl(146 52% 42%));
+    --gradient-error: linear-gradient(135deg, hsl(4 90% 62%), hsl(4 90% 52%));
+    --gradient-background: linear-gradient(135deg, hsl(var(--pioneer-charcoal)), hsl(var(--pioneer-mid-grey)));
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;

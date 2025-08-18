@@ -4,9 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, AlertCircle, Construction } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { PioneerLogoBrand } from '@/components/PioneerLogo';
+import { PioneerLogo } from '@/components/PioneerLogo';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -98,7 +98,7 @@ export default function Login() {
         console.log('✅ Login complete, redirecting to clock screen');
         toast.success('Welcome to Pioneer Auto Timesheets!', {
           description: 'Login successful',
-          className: 'bg-success text-success-foreground border-l-4 border-[#FF6B35]'
+          className: 'bg-success text-success-foreground border-l-4 border-[#702D30]'
         });
         window.location.href = '/clock';
       }
@@ -116,73 +116,69 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <Card className="border-0 shadow-xl backdrop-blur-sm bg-card/95 animate-slide-in-up border-l-4 border-[#FF6B35]">
-          <CardHeader className="text-center pb-6">
-            <div className="flex justify-center mb-8">
-              <PioneerLogoBrand />
+    <div className="min-h-screen bg-gradient-to-br from-[#EAEAEA] to-white flex items-center justify-center p-4">
+      <Card className="w-full max-w-md shadow-2xl border-0">
+        <CardHeader className="space-y-1 pb-6 bg-white rounded-t-lg">
+          <div className="flex justify-center mb-4">
+            <PioneerLogo className="h-14" />
+          </div>
+          <CardTitle className="text-2xl text-center font-heading font-extrabold text-[#111111]">
+            Worker Portal
+          </CardTitle>
+          <p className="text-center text-[#939393] font-body text-sm">
+            Pioneer Auto Timesheets System
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {error && (
+            <div className="p-3 rounded-lg bg-red-50 border border-red-200">
+              <p className="text-red-700 text-sm font-body">{error}</p>
             </div>
-            <CardTitle className="text-3xl font-bold text-foreground">Pioneer Auto Timesheets</CardTitle>
-            <p className="text-muted-foreground text-lg">Worker Portal</p>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {error && (
-              <div className="p-4 rounded-lg bg-error/10 border border-error/20 flex items-center gap-3 animate-slide-in-up">
-                <AlertCircle className="h-5 w-5 text-error flex-shrink-0" />
-                <p className="text-sm text-error font-medium">{error}</p>
-              </div>
-            )}
+          )}
+          
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <Input
+                id="email"
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="h-12 font-body"
+              />
+            </div>
+            <div>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="h-12 font-body"
+              />
+            </div>
             
-            <form onSubmit={handleLogin} className="space-y-5">
-              <div className="space-y-4">
-                <Input
-                  type="email"
-                  placeholder="Email address"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="h-14 text-base border-2 focus:border-primary transition-all duration-200"
-                  required
-                  autoComplete="email"
-                />
-                <Input
-                  type="password"
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="h-14 text-base border-2 focus:border-primary transition-all duration-200"
-                  required
-                  autoComplete="current-password"
-                />
-              </div>
+            <label className="flex items-center space-x-2 text-sm font-body">
+              <Checkbox 
+                checked={rememberMe}
+                onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+              />
+              <span>Remember me</span>
+            </label>
 
-              <div className="flex items-center space-x-3">
-                <Checkbox
-                  id="remember"
-                  checked={rememberMe}
-                  onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-                  className="border-2"
-                />
-                <label 
-                  htmlFor="remember" 
-                  className="text-sm font-medium text-foreground cursor-pointer"
-                >
-                  Remember me
-                </label>
-              </div>
-
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full h-14 text-base font-semibold bg-[#FF6B35] hover:bg-[#E85A2A] text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
-              >
-                {loading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
-                {loading ? 'Signing in...' : 'Sign In'}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
+            <Button 
+              type="submit" 
+              disabled={loading}
+              className="w-full bg-[#702D30] hover:bg-[#420808] text-white font-heading font-semibold transition-all duration-200 transform hover:scale-[1.02]"
+            >
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {loading ? 'Signing in...' : 'Sign In'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }
