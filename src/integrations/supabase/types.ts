@@ -17,32 +17,52 @@ export type Database = {
       additional_costs: {
         Row: {
           amount: number
+          clock_entry_id: string | null
           cost_type: string
           created_at: string | null
-          date: string
+          date: string | null
           description: string
+          expense_type_id: string | null
           id: string
-          worker_id: string
+          worker_id: string | null
         }
         Insert: {
           amount: number
+          clock_entry_id?: string | null
           cost_type: string
           created_at?: string | null
-          date: string
+          date?: string | null
           description: string
+          expense_type_id?: string | null
           id?: string
-          worker_id: string
+          worker_id?: string | null
         }
         Update: {
           amount?: number
+          clock_entry_id?: string | null
           cost_type?: string
           created_at?: string | null
-          date?: string
+          date?: string | null
           description?: string
+          expense_type_id?: string | null
           id?: string
-          worker_id?: string
+          worker_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "additional_costs_clock_entry_id_fkey"
+            columns: ["clock_entry_id"]
+            isOneToOne: false
+            referencedRelation: "clock_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "additional_costs_expense_type_id_fkey"
+            columns: ["expense_type_id"]
+            isOneToOne: false
+            referencedRelation: "expense_types"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "additional_costs_worker_id_fkey"
             columns: ["worker_id"]
@@ -130,6 +150,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      expense_types: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       jobs: {
         Row: {
