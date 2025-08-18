@@ -376,6 +376,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_is_manager: {
+        Args: { user_email: string }
+        Returns: boolean
+      }
       get_clocked_in_workers: {
         Args: Record<PropertyKey, never>
         Returns: {
