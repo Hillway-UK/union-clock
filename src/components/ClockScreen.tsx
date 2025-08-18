@@ -57,7 +57,7 @@ export default function ClockScreen() {
   const [location, setLocation] = useState<LocationData | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   
-  // Expense states
+  // Expense management state
   const [selectedExpenses, setSelectedExpenses] = useState<string[]>([]);
   const [expenseTypes, setExpenseTypes] = useState<ExpenseType[]>([]);
   const [showExpenseDialog, setShowExpenseDialog] = useState(false);
@@ -154,6 +154,7 @@ export default function ClockScreen() {
     if (!error && data) {
       setCurrentShiftExpenses(data);
     }
+    return data || [];
   };
 
   const checkCurrentStatus = async () => {
@@ -364,11 +365,12 @@ export default function ClockScreen() {
       }
       
       setCurrentEntry(data);
+      toast.success('Clocked in successfully!');
       
       // Show expense dialog after successful clock-in
-      setShowExpenseDialog(true);
-      
-      toast.success('Clocked in successfully!');
+      if (expenseTypes.length > 0) {
+        setShowExpenseDialog(true);
+      }
     } catch (error) {
       console.error('Clock in error:', error);
       toast.error('Failed to clock in');
@@ -410,21 +412,21 @@ export default function ClockScreen() {
       }
       
       // Fetch expenses for the completed shift
-      const { data: expenses } = await supabase
-        .from('additional_costs')
-        .select('*, expense_types(name, amount)')
-        .eq('clock_entry_id', currentEntry.id);
+      const expenses = await fetchCurrentShiftExpenses(currentEntry.id);
       
       setCurrentEntry(null);
       setCurrentShiftExpenses([]);
       
       // Enhanced success message with expenses
-      const expenseTotal = expenses?.reduce((sum, exp) => sum + (exp.expense_types?.amount || 0), 0) || 0;
-      const expenseMessage = expenses && expenses.length > 0 
-        ? ` | Expenses: £${expenseTotal.toFixed(2)} (${expenses.length} item${expenses.length > 1 ? 's' : ''})`
-        : '';
-      
-      toast.success(`Clocked out successfully! Worked ${hours.toFixed(2)} hours${expenseMessage}`);
+      if (expenses && expenses.length > 0) {
+        const totalExpenseAmount = expenses.reduce((sum, exp) => sum + (exp.expense_types?.amount || 0), 0);
+        toast.success(
+          `Clocked out successfully! Worked ${hours.toFixed(2)} hours. ${expenses.length} expense(s) claimed (£${totalExpenseAmount.toFixed(2)})`, 
+          { duration: 6000 }
+        );
+      } else {
+        toast.success(`Clocked out successfully! Worked ${hours.toFixed(2)} hours`);
+      }
     } catch (error) {
       console.error('Clock out error:', error);
       toast.error('Failed to clock out');
@@ -458,7 +460,7 @@ export default function ClockScreen() {
   }, 0);
 
   const handleExpenseSubmit = async () => {
-    if (!currentEntry) return;
+    if (!currentEntry || !worker) return;
     
     setLoadingExpenses(true);
     try {
