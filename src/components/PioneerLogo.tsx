@@ -17,3 +17,6 @@ export const PioneerLogo = ({ className = "h-12" }: { className?: string }) => (
     </div>
   </div>
 );
+
+// Temporary backward compatibility export to fix caching issues
+export const PioneerLogoBrand = PioneerLogo;
