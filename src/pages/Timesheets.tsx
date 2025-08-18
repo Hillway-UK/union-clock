@@ -2,8 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { format, startOfWeek, endOfWeek, differenceInMinutes, parseISO, addDays } from 'date-fns';
-import { Calendar, Clock, Edit2, Plus, ChevronLeft, ChevronRight, AlertCircle, DollarSign, ArrowLeft, Construction } from 'lucide-react';
+import { Calendar, Clock, Edit2, Plus, ChevronLeft, ChevronRight, AlertCircle, DollarSign, ArrowLeft, Construction, Save } from 'lucide-react';
 import { toast } from 'sonner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export default function Timesheets() {
   const navigate = useNavigate();
@@ -21,6 +26,19 @@ export default function Timesheets() {
   const [existingAmendments, setExistingAmendments] = useState<any[]>([]);
   const [savingExpenses, setSavingExpenses] = useState(false);
   const [workerHourlyRate, setWorkerHourlyRate] = useState<number>(0);
+  
+  // Manual entry state
+  const [showManualEntry, setShowManualEntry] = useState(false);
+  const [manualEntry, setManualEntry] = useState({
+    date: format(new Date(), 'yyyy-MM-dd'),
+    job_id: '',
+    clock_in_time: '09:00',
+    clock_out_time: '17:00',
+    notes: ''
+  });
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [submittingManual, setSubmittingManual] = useState(false);
+  const [worker, setWorker] = useState<any>(null);
 
   // Fetch timesheet entries for current week
   const fetchEntries = async () => {
@@ -120,7 +138,44 @@ export default function Timesheets() {
     }
   };
 
+  // Fetch worker data
+  const fetchWorker = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) return;
+
+      const { data, error } = await supabase
+        .from('workers')
+        .select('*')
+        .eq('email', user.email)
+        .single();
+
+      if (error) throw error;
+      setWorker(data);
+    } catch (error) {
+      console.error('Error fetching worker:', error);
+    }
+  };
+
+  // Fetch jobs for manual entry
+  const fetchJobs = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('jobs')
+        .select('*')
+        .eq('is_active', true)
+        .order('name');
+      
+      if (error) throw error;
+      setJobs(data || []);
+    } catch (error) {
+      console.error('Error fetching jobs:', error);
+    }
+  };
+
   useEffect(() => {
+    fetchWorker();
+    fetchJobs();
     fetchEntries();
     fetchAmendments();
     fetchExpenseTypes();
@@ -303,6 +358,83 @@ export default function Timesheets() {
     return amendment?.status;
   };
 
+  // Submit manual entry
+  const submitManualEntry = async () => {
+    if (!manualEntry.job_id) {
+      toast.error('Please select a job site');
+      return;
+    }
+
+    if (!worker?.id) {
+      toast.error('Worker profile not found');
+      return;
+    }
+
+    setSubmittingManual(true);
+    try {
+      // Combine date and time for timestamps
+      const clockInDateTime = new Date(`${manualEntry.date}T${manualEntry.clock_in_time}:00`);
+      const clockOutDateTime = new Date(`${manualEntry.date}T${manualEntry.clock_out_time}:00`);
+
+      // Validate times
+      if (clockOutDateTime <= clockInDateTime) {
+        toast.error('Clock out time must be after clock in time');
+        setSubmittingManual(false);
+        return;
+      }
+
+      // Check for existing entries on this date
+      const { data: existingEntries, error: checkError } = await supabase
+        .from('clock_entries')
+        .select('*')
+        .eq('worker_id', worker.id)
+        .gte('clock_in', `${manualEntry.date}T00:00:00`)
+        .lte('clock_in', `${manualEntry.date}T23:59:59`);
+
+      if (checkError) throw checkError;
+
+      if (existingEntries && existingEntries.length > 0) {
+        toast.error('You already have an entry for this date');
+        setSubmittingManual(false);
+        return;
+      }
+
+      // Calculate total hours
+      const totalHours = (clockOutDateTime.getTime() - clockInDateTime.getTime()) / (1000 * 60 * 60);
+
+      // Create the manual entry
+      const { error } = await supabase
+        .from('clock_entries')
+        .insert({
+          worker_id: worker.id,
+          job_id: manualEntry.job_id,
+          clock_in: clockInDateTime.toISOString(),
+          clock_out: clockOutDateTime.toISOString(),
+          total_hours: Math.round(totalHours * 100) / 100,
+          manual_entry: true,
+          notes: manualEntry.notes || `Manual entry added on ${format(new Date(), 'dd/MM/yyyy')}`
+        });
+
+      if (error) throw error;
+
+      toast.success('Manual entry added successfully');
+      setShowManualEntry(false);
+      setManualEntry({
+        date: format(new Date(), 'yyyy-MM-dd'),
+        job_id: '',
+        clock_in_time: '09:00',
+        clock_out_time: '17:00',
+        notes: ''
+      });
+      fetchEntries(); // Refresh the timesheet
+    } catch (error: any) {
+      console.error('Error adding manual entry:', error);
+      toast.error(error.message || 'Failed to add manual entry');
+    } finally {
+      setSubmittingManual(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-4xl mx-auto">
@@ -323,7 +455,7 @@ export default function Timesheets() {
           </div>
         </header>
 
-        {/* Week Navigation */}
+        {/* Week Navigation and Manual Entry */}
         <div className="bg-card rounded-lg shadow-sm p-4 mb-4 border border-border border-l-4 border-[#702D30]">
           <div className="flex items-center justify-between">
             <button
@@ -344,12 +476,22 @@ export default function Timesheets() {
                 Hours: £{calculateWeeklyHoursPay().toFixed(2)} + Expenses: £{calculateWeeklyExpenses().toFixed(2)}
               </div>
             </div>
-            <button
-              onClick={() => setCurrentWeek(addDays(currentWeek, 7))}
-              className="p-2 bg-[#702D30] hover:bg-[#420808] text-white rounded-lg transition-colors shadow-md"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setShowManualEntry(true)}
+                className="bg-[#702D30] hover:bg-[#420808] text-white"
+                size="sm"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Manual Entry
+              </Button>
+              <button
+                onClick={() => setCurrentWeek(addDays(currentWeek, 7))}
+                className="p-2 bg-[#702D30] hover:bg-[#420808] text-white rounded-lg transition-colors shadow-md"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -390,18 +532,37 @@ export default function Timesheets() {
                            <div className="font-body font-medium text-foreground">
                              {entry.jobs?.name} ({entry.jobs?.code})
                            </div>
-                           <div className="text-sm font-body text-muted-foreground mt-1">
-                             <span className="inline-flex items-center gap-1">
-                               <Clock className="w-3 h-3" />
-                               {format(parseISO(entry.clock_in), 'HH:mm')} - 
-                               {entry.clock_out ? format(parseISO(entry.clock_out), ' HH:mm') : ' Active'}
-                             </span>
-                             {entry.clock_out && (
-                               <span className="ml-3 font-heading font-medium">
-                                 ({calculateHours(entry.clock_in, entry.clock_out).toFixed(2)} hrs)
-                               </span>
-                             )}
-                           </div>
+                            <div className="text-sm font-body text-muted-foreground mt-1">
+                              <span className="inline-flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {format(parseISO(entry.clock_in), 'HH:mm')} - 
+                                {entry.clock_out ? format(parseISO(entry.clock_out), ' HH:mm') : ' Active'}
+                              </span>
+                              {entry.clock_out && (
+                                <span className="ml-3 font-heading font-medium">
+                                  ({calculateHours(entry.clock_in, entry.clock_out).toFixed(2)} hrs)
+                                </span>
+                              )}
+                            </div>
+                            
+                            {/* Manual entry indicator */}
+                            {entry.manual_entry && (
+                              <span className="inline-block mt-1 px-2 py-1 bg-amber-100 text-amber-800 text-xs rounded">
+                                Manual Entry
+                              </span>
+                            )}
+                            
+                            {/* Auto clock-out indicator */}
+                            {entry.auto_clocked_out && (
+                              <span className="inline-block mt-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded ml-2">
+                                Auto Clock-Out
+                              </span>
+                            )}
+                            
+                            {/* Show notes */}
+                            {entry.notes && (
+                              <p className="text-sm text-gray-500 mt-1">{entry.notes}</p>
+                            )}
                           
                           {/* Show expenses */}
                           {entry.additional_costs && Array.isArray(entry.additional_costs) && entry.additional_costs.length > 0 && (
@@ -632,6 +793,98 @@ export default function Timesheets() {
             </div>
           </div>
         )}
+
+        {/* Manual Entry Dialog */}
+        <Dialog open={showManualEntry} onOpenChange={setShowManualEntry}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold">Add Manual Time Entry</DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-4 mt-4">
+              <div>
+                <Label htmlFor="entry-date">Date</Label>
+                <Input
+                  id="entry-date"
+                  type="date"
+                  value={manualEntry.date}
+                  onChange={(e) => setManualEntry(prev => ({ ...prev, date: e.target.value }))}
+                  max={format(new Date(), 'yyyy-MM-dd')}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="job-select">Job Site</Label>
+                <Select
+                  value={manualEntry.job_id}
+                  onValueChange={(value) => setManualEntry(prev => ({ ...prev, job_id: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a job site" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {jobs.map(job => (
+                      <SelectItem key={job.id} value={job.id}>
+                        {job.name} ({job.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="clock-in">Clock In Time</Label>
+                  <Input
+                    id="clock-in"
+                    type="time"
+                    value={manualEntry.clock_in_time}
+                    onChange={(e) => setManualEntry(prev => ({ ...prev, clock_in_time: e.target.value }))}
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="clock-out">Clock Out Time</Label>
+                  <Input
+                    id="clock-out"
+                    type="time"
+                    value={manualEntry.clock_out_time}
+                    onChange={(e) => setManualEntry(prev => ({ ...prev, clock_out_time: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="notes">Notes (Optional)</Label>
+                <Input
+                  id="notes"
+                  type="text"
+                  placeholder="Reason for manual entry"
+                  value={manualEntry.notes}
+                  onChange={(e) => setManualEntry(prev => ({ ...prev, notes: e.target.value }))}
+                />
+              </div>
+
+              <div className="flex gap-2 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowManualEntry(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={submitManualEntry}
+                  className="flex-1 bg-[#702D30] hover:bg-[#420808] text-white"
+                  disabled={submittingManual}
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  {submittingManual ? 'Adding...' : 'Add Entry'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

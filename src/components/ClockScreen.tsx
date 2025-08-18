@@ -4,9 +4,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Camera, MapPin, Clock, LogOut, Loader2, User, HelpCircle, X, Check, Wallet, RefreshCw, Construction } from 'lucide-react';
+import { Camera, MapPin, Clock, LogOut, Loader2, User, HelpCircle, X, Check, Wallet, RefreshCw, Construction, Bell, BellOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { PioneerLogo } from '@/components/PioneerLogo';
+import { NotificationService } from '@/services/notifications';
 
 interface Worker {
   id: string;
@@ -66,6 +67,7 @@ export default function ClockScreen() {
   const [refreshingJobs, setRefreshingJobs] = useState(false);
   const [showExpenseDialog, setShowExpenseDialog] = useState(false);
   const [completedClockEntry, setCompletedClockEntry] = useState<any>(null);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
   useEffect(() => {
     // Load worker data
@@ -81,6 +83,7 @@ export default function ClockScreen() {
     checkCurrentStatus();
     requestLocation();
     fetchExpenseTypes();
+    setupNotifications();
 
     // Update time every second
     const timeInterval = setInterval(() => {
@@ -89,6 +92,46 @@ export default function ClockScreen() {
 
     return () => clearInterval(timeInterval);
   }, []);
+
+  const setupNotifications = async () => {
+    if (!worker?.id) return;
+    
+    const permission = await NotificationService.requestPermission();
+    if (permission) {
+      const subscribed = await NotificationService.subscribeToPushNotifications(worker.id);
+      setNotificationsEnabled(subscribed);
+      
+      if (subscribed) {
+        toast.success('Notifications enabled! You\'ll receive reminders to clock in/out.');
+      }
+    }
+  };
+
+  const toggleNotifications = async () => {
+    if (!worker?.id) return;
+    
+    if (notificationsEnabled) {
+      // Disable notifications
+      localStorage.removeItem(`push_subscription_${worker.id}`);
+      setNotificationsEnabled(false);
+      toast.success('Notifications disabled');
+    } else {
+      // Enable notifications
+      const permission = await NotificationService.requestPermission();
+      if (permission) {
+        const subscribed = await NotificationService.subscribeToPushNotifications(worker.id);
+        setNotificationsEnabled(subscribed);
+        
+        if (subscribed) {
+          toast.success('Notifications enabled!');
+        } else {
+          toast.error('Failed to enable notifications');
+        }
+      } else {
+        toast.error('Notification permission denied');
+      }
+    }
+  };
 
   // Real-time jobs listener
   useEffect(() => {
