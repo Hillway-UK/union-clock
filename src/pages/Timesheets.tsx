@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { format, startOfWeek, endOfWeek, differenceInMinutes, parseISO, addDays } from 'date-fns';
-import { Calendar, Clock, Edit2, Plus, ChevronLeft, ChevronRight, AlertCircle, DollarSign } from 'lucide-react';
+import { Calendar, Clock, Edit2, Plus, ChevronLeft, ChevronRight, AlertCircle, DollarSign, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Timesheets() {
+  const navigate = useNavigate();
   const [entries, setEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentWeek, setCurrentWeek] = useState(new Date());
@@ -21,42 +23,84 @@ export default function Timesheets() {
 
   // Fetch timesheet entries for current week
   const fetchEntries = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) {
+        console.log('No authenticated user found');
+        setLoading(false);
+        return;
+      }
 
-    const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
-    const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
+      // First get worker profile by email
+      const { data: workerData, error: workerError } = await supabase
+        .from('workers')
+        .select('id')
+        .eq('email', user.email)
+        .single();
 
-    const { data, error } = await supabase
-      .from('clock_entries')
-      .select(`
-        *,
-        jobs (name, code),
-        additional_costs (amount, description)
-      `)
-      .eq('worker_id', user.id)
-      .gte('clock_in', weekStart.toISOString())
-      .lte('clock_in', weekEnd.toISOString())
-      .order('clock_in', { ascending: false });
+      if (workerError || !workerData) {
+        console.log('Worker not found for email:', user.email);
+        toast.error('Worker profile not found');
+        setLoading(false);
+        return;
+      }
 
-    if (!error && data) {
-      setEntries(data);
+      const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
+      const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
+
+      console.log('Fetching entries for worker:', workerData.id, 'week:', weekStart, 'to', weekEnd);
+
+      const { data, error } = await supabase
+        .from('clock_entries')
+        .select(`
+          *,
+          jobs (name, code),
+          additional_costs (amount, description)
+        `)
+        .eq('worker_id', workerData.id)
+        .gte('clock_in', weekStart.toISOString())
+        .lte('clock_in', weekEnd.toISOString())
+        .order('clock_in', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching entries:', error);
+        toast.error('Failed to load timesheet entries');
+      } else {
+        console.log('Found entries:', data?.length || 0);
+        setEntries(data || []);
+      }
+    } catch (error) {
+      console.error('Error in fetchEntries:', error);
+      toast.error('Failed to load timesheet data');
     }
     setLoading(false);
   };
 
   // Fetch existing amendments
   const fetchAmendments = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) return;
 
-    const { data } = await supabase
-      .from('time_amendments')
-      .select('*')
-      .eq('worker_id', user.id);
+      // First get worker profile by email
+      const { data: workerData, error: workerError } = await supabase
+        .from('workers')
+        .select('id')
+        .eq('email', user.email)
+        .single();
 
-    if (data) {
-      setExistingAmendments(data);
+      if (workerError || !workerData) return;
+
+      const { data } = await supabase
+        .from('time_amendments')
+        .select('*')
+        .eq('worker_id', workerData.id);
+
+      if (data) {
+        setExistingAmendments(data);
+      }
+    } catch (error) {
+      console.error('Error fetching amendments:', error);
     }
   };
 
@@ -104,28 +148,46 @@ export default function Timesheets() {
       return;
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    const { error } = await supabase
-      .from('time_amendments')
-      .insert({
-        worker_id: user?.id,
-        clock_entry_id: selectedEntry.id,
-        requested_clock_in: newClockIn || selectedEntry.clock_in,
-        requested_clock_out: newClockOut || selectedEntry.clock_out,
-        reason: amendmentReason,
-        status: 'pending'
-      });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) return;
 
-    if (error) {
+      // Get worker ID by email
+      const { data: workerData, error: workerError } = await supabase
+        .from('workers')
+        .select('id')
+        .eq('email', user.email)
+        .single();
+
+      if (workerError || !workerData) {
+        toast.error('Worker profile not found');
+        return;
+      }
+      
+      const { error } = await supabase
+        .from('time_amendments')
+        .insert({
+          worker_id: workerData.id,
+          clock_entry_id: selectedEntry.id,
+          requested_clock_in: newClockIn || selectedEntry.clock_in,
+          requested_clock_out: newClockOut || selectedEntry.clock_out,
+          reason: amendmentReason,
+          status: 'pending'
+        });
+    
+      if (error) {
+        toast.error('Failed to submit amendment');
+      } else {
+        toast.success('Amendment request submitted for approval');
+        setShowAmendmentDialog(false);
+        setAmendmentReason('');
+        setNewClockIn('');
+        setNewClockOut('');
+        fetchAmendments();
+      }
+    } catch (error) {
+      console.error('Error submitting amendment:', error);
       toast.error('Failed to submit amendment');
-    } else {
-      toast.success('Amendment request submitted for approval');
-      setShowAmendmentDialog(false);
-      setAmendmentReason('');
-      setNewClockIn('');
-      setNewClockOut('');
-      fetchAmendments();
     }
   };
 
@@ -137,35 +199,57 @@ export default function Timesheets() {
     }
 
     setSavingExpenses(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    let successCount = 0;
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) return;
 
-    for (const expenseId of selectedExpenses) {
-      const expense = expenseTypes.find(e => e.id === expenseId);
-      if (expense) {
-        const { error } = await supabase
-          .from('additional_costs')
-          .insert({
-            worker_id: user?.id,
-            clock_entry_id: selectedEntry.id,
-            date: format(parseISO(selectedEntry.clock_in), 'yyyy-MM-dd'),
-            description: expense.name,
-            amount: expense.amount,
-            cost_type: 'other',
-            expense_type_id: expenseId
-          });
+      // Get worker ID by email  
+      const { data: workerData, error: workerError } = await supabase
+        .from('workers')
+        .select('id')
+        .eq('email', user.email)
+        .single();
 
-        if (!error) {
-          successCount++;
+      if (workerError || !workerData) {
+        toast.error('Worker profile not found');
+        setSavingExpenses(false);
+        return;
+      }
+
+      let successCount = 0;
+
+      for (const expenseId of selectedExpenses) {
+        const expense = expenseTypes.find(e => e.id === expenseId);
+        if (expense) {
+          const { error } = await supabase
+            .from('additional_costs')
+            .insert({
+              worker_id: workerData.id,
+              clock_entry_id: selectedEntry.id,
+              date: format(parseISO(selectedEntry.clock_in), 'yyyy-MM-dd'),
+              description: expense.name,
+              amount: expense.amount,
+              cost_type: 'other',
+              expense_type_id: expenseId
+            });
+
+          if (!error) {
+            successCount++;
+          }
         }
       }
-    }
 
-    setSavingExpenses(false);
-    toast.success(`${successCount} expense(s) added`);
-    setShowExpenseDialog(false);
-    setSelectedExpenses([]);
-    fetchEntries();
+      setSavingExpenses(false);
+      toast.success(`${successCount} expense(s) added`);
+      setShowExpenseDialog(false);
+      setSelectedExpenses([]);
+      fetchEntries();
+    } catch (error) {
+      console.error('Error adding expenses:', error);
+      toast.error('Failed to add expenses');
+      setSavingExpenses(false);
+    }
   };
 
   // Check if amendment exists for entry
@@ -183,10 +267,19 @@ export default function Timesheets() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="bg-card rounded-lg shadow-sm p-4 mb-4 border border-border">
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Calendar className="w-6 h-6 text-primary" />
-            My Timesheets
-          </h1>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/')}
+              className="p-2 hover:bg-accent rounded-lg transition-colors"
+              title="Back to Clock Screen"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+              <Calendar className="w-6 h-6 text-primary" />
+              My Timesheets
+            </h1>
+          </div>
         </div>
 
         {/* Week Navigation */}
