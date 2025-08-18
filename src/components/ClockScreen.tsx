@@ -90,46 +90,51 @@ export default function ClockScreen() {
       setCurrentTime(new Date());
     }, 1000);
 
-    return () => clearInterval(timeInterval);
+    // Set up notification checking
+    let notificationInterval: NodeJS.Timeout;
+    if (worker?.id) {
+      notificationInterval = setInterval(() => {
+        if (notificationsEnabled) {
+          NotificationService.checkAndNotify(worker.id);
+        }
+      }, 60000); // Check every minute
+    }
+
+    return () => {
+      clearInterval(timeInterval);
+      if (notificationInterval) clearInterval(notificationInterval);
+    };
   }, []);
 
   const setupNotifications = async () => {
     if (!worker?.id) return;
     
-    const permission = await NotificationService.requestPermission();
-    if (permission) {
-      const subscribed = await NotificationService.subscribeToPushNotifications(worker.id);
-      setNotificationsEnabled(subscribed);
-      
-      if (subscribed) {
-        toast.success('Notifications enabled! You\'ll receive reminders to clock in/out.');
-      }
+    try {
+      const enabled = await NotificationService.checkNotificationStatus(worker.id);
+      setNotificationsEnabled(enabled);
+    } catch (error) {
+      console.error('Error checking notification status:', error);
     }
   };
 
   const toggleNotifications = async () => {
     if (!worker?.id) return;
     
-    if (notificationsEnabled) {
-      // Disable notifications
-      localStorage.removeItem(`push_subscription_${worker.id}`);
-      setNotificationsEnabled(false);
-      toast.success('Notifications disabled');
-    } else {
-      // Enable notifications
-      const permission = await NotificationService.requestPermission();
-      if (permission) {
-        const subscribed = await NotificationService.subscribeToPushNotifications(worker.id);
-        setNotificationsEnabled(subscribed);
-        
-        if (subscribed) {
-          toast.success('Notifications enabled!');
-        } else {
-          toast.error('Failed to enable notifications');
-        }
+    try {
+      if (notificationsEnabled) {
+        // Disable notifications
+        await NotificationService.disableNotifications(worker.id);
+        setNotificationsEnabled(false);
+        toast.success('Notifications disabled');
       } else {
-        toast.error('Notification permission denied');
+        // Enable notifications
+        await NotificationService.enableNotifications(worker.id);
+        setNotificationsEnabled(true);
+        toast.success('Notifications enabled!');
       }
+    } catch (error: any) {
+      console.error('Notification error:', error);
+      toast.error(error.message || 'Failed to update notification settings');
     }
   };
 
@@ -642,6 +647,19 @@ export default function ClockScreen() {
             <Button variant="ghost" size="icon" onClick={() => navigate('/help')} className="text-white hover:bg-white/20">
               <HelpCircle className="w-4 h-4" />
             </Button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={toggleNotifications}
+              className={`text-white hover:bg-white/20 ${notificationsEnabled ? 'bg-white/10' : ''}`}
+              title={notificationsEnabled ? 'Notifications Enabled' : 'Enable Notifications'}
+            >
+              {notificationsEnabled ? (
+                <Bell className="w-4 h-4" />
+              ) : (
+                <BellOff className="w-4 h-4" />
+              )}
+            </Button>
             <Button variant="ghost" size="icon" onClick={handleLogout} className="text-white hover:bg-white/20">
               <LogOut className="w-4 h-4" />
             </Button>
@@ -785,29 +803,6 @@ export default function ClockScreen() {
           </Card>
         )}
 
-        {/* Notification Toggle */}
-        <Button
-          variant="outline"
-          onClick={toggleNotifications}
-          className={`w-full border-2 font-heading font-semibold shadow-md hover:shadow-lg transition-all duration-200 ${
-            notificationsEnabled 
-              ? 'border-green-500 text-green-700 hover:bg-green-50' 
-              : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-          }`}
-          size="lg"
-        >
-          {notificationsEnabled ? (
-            <>
-              <Bell className="mr-2 h-5 w-5" />
-              Notifications Enabled
-            </>
-          ) : (
-            <>
-              <BellOff className="mr-2 h-5 w-5" />
-              Enable Notifications
-            </>
-          )}
-        </Button>
 
         {/* Timesheet Navigation */}
         <Button

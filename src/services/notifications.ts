@@ -2,140 +2,185 @@ import { supabase } from '@/integrations/supabase/client';
 
 export class NotificationService {
   static async requestPermission(): Promise<boolean> {
+    // Check if browser supports notifications
     if (!('Notification' in window)) {
       console.log('This browser does not support notifications');
       return false;
     }
 
+    // Check current permission
     if (Notification.permission === 'granted') {
       return true;
     }
 
+    // Request permission
     if (Notification.permission !== 'denied') {
-      const permission = await Notification.requestPermission();
-      return permission === 'granted';
+      try {
+        const permission = await Notification.requestPermission();
+        return permission === 'granted';
+      } catch (error) {
+        console.error('Error requesting notification permission:', error);
+        return false;
+      }
     }
 
     return false;
   }
 
-  static async registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
+  static async enableNotifications(workerId: string): Promise<boolean> {
     try {
-      if ('serviceWorker' in navigator) {
-        const registration = await navigator.serviceWorker.register('/sw.js');
-        console.log('Service Worker registered successfully:', registration);
-        return registration;
-      }
-      return null;
-    } catch (error) {
-      console.error('Service Worker registration failed:', error);
-      return null;
-    }
-  }
-
-  static async subscribeToPushNotifications(workerId: string): Promise<boolean> {
-    try {
-      const registration = await this.registerServiceWorker();
-      if (!registration) return false;
-
-      // Generate subscription
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: this.urlBase64ToUint8Array(
-          'BMlJWn_9d8m6ht_zzIWH8pXy7VbK1l_p8OEo2R2BFZ4w-r9a2B3Q2F2a3X1K2F9s8E4t5Y1s2A7X3b4H1j6k9M'
-        )
-      });
-
-      // Store subscription in localStorage for now (will be in DB later)
-      localStorage.setItem(`push_subscription_${workerId}`, JSON.stringify(subscription));
+      // First request permission
+      const hasPermission = await this.requestPermission();
       
-      console.log('Push notification subscription successful');
+      if (!hasPermission) {
+        throw new Error('Notification permission denied');
+      }
+
+      // Save preference to database
+      const { error } = await supabase
+        .from('notification_preferences')
+        .upsert({
+          worker_id: workerId,
+          morning_reminder: true,
+          evening_reminder: true,
+          enabled_days: [1, 2, 3, 4, 5], // Mon-Fri
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'worker_id'
+        });
+
+      if (error) throw error;
+
+      // Show test notification
+      this.showLocalNotification(
+        'Notifications Enabled!',
+        'You\'ll receive clock-in reminders at 9am and clock-out reminders at 7pm on weekdays.'
+      );
+
       return true;
     } catch (error) {
-      console.error('Failed to subscribe to push notifications:', error);
-      return false;
+      console.error('Failed to enable notifications:', error);
+      throw error;
     }
   }
 
-  static showLocalNotification(title: string, body: string, icon?: string): void {
-    if (Notification.permission === 'granted') {
-      new Notification(title, {
-        body,
-        icon: icon || '/icon-192.png',
-        badge: '/icon-192.png',
-        tag: 'pioneer-timesheets',
-        requireInteraction: true
-      });
+  static async disableNotifications(workerId: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('notification_preferences')
+        .delete()
+        .eq('worker_id', workerId);
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Failed to disable notifications:', error);
+      throw error;
     }
+  }
+
+  static showLocalNotification(title: string, body: string): Notification | null {
+    if (Notification.permission === 'granted') {
+      try {
+        const notification = new Notification(title, {
+          body,
+          icon: '/icon-192.png',
+          badge: '/icon-192.png',
+          tag: 'pioneer-timesheets',
+          requireInteraction: false,
+          silent: false
+        });
+
+        // Auto close after 5 seconds
+        setTimeout(() => notification.close(), 5000);
+
+        return notification;
+      } catch (error) {
+        console.error('Error showing notification:', error);
+        // Fallback to alert on iOS PWA if notification fails
+        if ((window.navigator as any).standalone) {
+          alert(`${title}\n\n${body}`);
+        }
+        return null;
+      }
+    }
+    return null;
   }
 
   static async checkNotificationStatus(workerId: string): Promise<boolean> {
     try {
-      // Check localStorage for subscription
-      const subscription = localStorage.getItem(`push_subscription_${workerId}`);
-      return !!subscription && Notification.permission === 'granted';
-    } catch (error) {
-      return false;
-    }
-  }
-
-  static async updateNotificationPreferences(workerId: string, preferences: {
-    morning_reminder?: boolean;
-    evening_reminder?: boolean;
-    reminder_time_morning?: string;
-    reminder_time_evening?: string;
-    enabled_days?: number[];
-  }): Promise<boolean> {
-    try {
-      // Store preferences in localStorage for now
-      const existingPrefs = localStorage.getItem(`notification_prefs_${workerId}`);
-      const currentPrefs = existingPrefs ? JSON.parse(existingPrefs) : {};
+      // Check if notifications are enabled in browser
+      const hasPermission = Notification.permission === 'granted';
+      if (!hasPermission) return false;
       
-      localStorage.setItem(`notification_prefs_${workerId}`, JSON.stringify({
-        ...currentPrefs,
-        ...preferences,
-        updated_at: new Date().toISOString()
-      }));
-
-      return true;
+      // Check database preferences
+      const { data } = await supabase
+        .from('notification_preferences')
+        .select('*')
+        .eq('worker_id', workerId)
+        .single();
+        
+      return !!data;
     } catch (error) {
-      console.error('Failed to update notification preferences:', error);
+      console.error('Error checking notification status:', error);
       return false;
     }
   }
 
-  private static urlBase64ToUint8Array(base64String: string): Uint8Array {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding)
-      .replace(/-/g, '+')
-      .replace(/_/g, '/');
+  static async checkAndNotify(workerId: string): Promise<void> {
+    const now = new Date();
+    const hours = now.getHours();
+    const day = now.getDay();
 
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
+    // Only check on weekdays
+    if (day === 0 || day === 6) return;
 
-    for (let i = 0; i < rawData.length; ++i) {
-      outputArray[i] = rawData.charCodeAt(i);
+    try {
+      // Check if notifications are enabled for this worker
+      const { data: prefs } = await supabase
+        .from('notification_preferences')
+        .select('*')
+        .eq('worker_id', workerId)
+        .single();
+
+      if (!prefs) return;
+
+      // Morning reminder at 9am
+      if (hours === 9 && prefs.morning_reminder) {
+        const today = now.toISOString().split('T')[0];
+        const { data: todayEntry } = await supabase
+          .from('clock_entries')
+          .select('*')
+          .eq('worker_id', workerId)
+          .gte('clock_in', `${today}T00:00:00`)
+          .single();
+
+        if (!todayEntry) {
+          this.showLocalNotification(
+            'Clock In Reminder',
+            'Good morning! Don\'t forget to clock in for today.'
+          );
+        }
+      }
+
+      // Evening reminder at 7pm
+      if (hours === 19 && prefs.evening_reminder) {
+        const { data: activeEntry } = await supabase
+          .from('clock_entries')
+          .select('*')
+          .eq('worker_id', workerId)
+          .is('clock_out', null)
+          .single();
+
+        if (activeEntry) {
+          this.showLocalNotification(
+            'Clock Out Reminder',
+            'You\'re still clocked in. Don\'t forget to clock out!'
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Error in checkAndNotify:', error);
     }
-    return outputArray;
   }
-
-  // Predefined notification messages
-  static readonly NOTIFICATIONS = {
-    MORNING_REMINDER: {
-      title: 'Good Morning! 🌅',
-      body: "Don't forget to clock in when you arrive at your job site."
-    },
-    EVENING_REMINDER: {
-      title: 'End of Day Reminder ⏰',
-      body: "You're still clocked in. Don't forget to clock out!"
-    },
-    AUTO_CLOCK_OUT: {
-      title: 'Auto Clock-Out 🔄',
-      body: 'You were automatically clocked out after 12 hours.'
-    },
-    NEW_JOB_AVAILABLE: {
-      title: 'New Job Available 🏗️',
-      body: 'A new job site has been added to your assignments.'
-    }
-  };
 }
