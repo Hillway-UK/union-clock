@@ -566,6 +566,15 @@ export default function ClockScreen() {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={handleRefreshJobs}
+            disabled={refreshingJobs}
+            title="Refresh job sites"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshingJobs ? 'animate-spin' : ''}`} />
+          </Button>
           <Button variant="ghost" size="icon" onClick={() => navigate('/profile')}>
             <User className="w-4 h-4" />
           </Button>
