@@ -26,7 +26,8 @@ export default {
 				foreground: 'hsl(var(--foreground))',
 				primary: {
 					DEFAULT: 'hsl(var(--primary))',
-					foreground: 'hsl(var(--primary-foreground))'
+					foreground: 'hsl(var(--primary-foreground))',
+					dark: 'hsl(var(--primary-dark))'
 				},
 				secondary: {
 					DEFAULT: 'hsl(var(--secondary))',
@@ -52,6 +53,18 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
+				success: {
+					DEFAULT: 'hsl(var(--success))',
+					foreground: 'hsl(var(--success-foreground))'
+				},
+				warning: {
+					DEFAULT: 'hsl(var(--warning))',
+					foreground: 'hsl(var(--warning-foreground))'
+				},
+				error: {
+					DEFAULT: 'hsl(var(--error))',
+					foreground: 'hsl(var(--error-foreground))'
+				},
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
 					foreground: 'hsl(var(--sidebar-foreground))',
@@ -63,33 +76,87 @@ export default {
 					ring: 'hsl(var(--sidebar-ring))'
 				}
 			},
+			backgroundImage: {
+				'gradient-primary': 'var(--gradient-primary)',
+				'gradient-success': 'var(--gradient-success)',
+				'gradient-error': 'var(--gradient-error)',
+				'gradient-background': 'var(--gradient-background)'
+			},
 			borderRadius: {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
 				sm: 'calc(var(--radius) - 4px)'
 			},
-			keyframes: {
-				'accordion-down': {
-					from: {
-						height: '0'
-					},
-					to: {
-						height: 'var(--radix-accordion-content-height)'
-					}
+		keyframes: {
+			'accordion-down': {
+				from: {
+					height: '0'
 				},
-				'accordion-up': {
-					from: {
-						height: 'var(--radix-accordion-content-height)'
-					},
-					to: {
-						height: '0'
-					}
+				to: {
+					height: 'var(--radix-accordion-content-height)'
 				}
 			},
-			animation: {
-				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+			'accordion-up': {
+				from: {
+					height: 'var(--radix-accordion-content-height)'
+				},
+				to: {
+					height: '0'
+				}
+			},
+			'pulse-slow': {
+				'0%, 100%': {
+					opacity: '1',
+					transform: 'scale(1)'
+				},
+				'50%': {
+					opacity: '0.8',
+					transform: 'scale(1.05)'
+				}
+			},
+			'slide-in-up': {
+				'0%': {
+					transform: 'translateY(20px)',
+					opacity: '0'
+				},
+				'100%': {
+					transform: 'translateY(0)',
+					opacity: '1'
+				}
+			},
+			'bounce-in': {
+				'0%': {
+					transform: 'scale(0.3)',
+					opacity: '0'
+				},
+				'50%': {
+					transform: 'scale(1.05)',
+					opacity: '1'
+				},
+				'70%': {
+					transform: 'scale(0.9)'
+				},
+				'100%': {
+					transform: 'scale(1)'
+				}
+			},
+			'spin-slow': {
+				'0%': {
+					transform: 'rotate(0deg)'
+				},
+				'100%': {
+					transform: 'rotate(360deg)'
+				}
 			}
+		},
+		animation: {
+			'accordion-down': 'accordion-down 0.2s ease-out',
+			'accordion-up': 'accordion-up 0.2s ease-out',
+			'pulse-slow': 'pulse-slow 2s ease-in-out infinite',
+			'slide-in-up': 'slide-in-up 0.3s ease-out',
+			'bounce-in': 'bounce-in 0.5s ease-out',
+			'spin-slow': 'spin-slow 2s linear infinite'
+		}
 		}
 	},
 	plugins: [require("tailwindcss-animate")],

@@ -3,18 +3,22 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import pioneerLogo from '@/assets/pioneer-logo.png';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
     
     try {
       const { data: { user }, error } = await supabase.auth.signInWithPassword({
@@ -23,7 +27,11 @@ export default function Login() {
       });
       
       if (error) {
-        toast.error('Login failed: ' + error.message);
+        setError(error.message);
+        toast.error('Login failed', {
+          description: error.message,
+          className: 'bg-error text-error-foreground border-error'
+        });
         return;
       }
 
@@ -36,74 +44,117 @@ export default function Login() {
           .single();
           
         if (workerError || !worker) {
-          toast.error('Not authorized as worker');
+          const errorMsg = 'Not authorized as worker';
+          setError(errorMsg);
+          toast.error('Access Denied', {
+            description: errorMsg,
+            className: 'bg-error text-error-foreground border-error'
+          });
           await supabase.auth.signOut();
           return;
         }
 
         if (!worker.is_active) {
-          toast.error('Worker account is inactive');
+          const errorMsg = 'Worker account is inactive';
+          setError(errorMsg);
+          toast.error('Account Inactive', {
+            description: errorMsg,
+            className: 'bg-error text-error-foreground border-error'
+          });
           await supabase.auth.signOut();
           return;
         }
         
         localStorage.setItem('worker', JSON.stringify(worker));
-        toast.success('Login successful!');
+        if (rememberMe) {
+          localStorage.setItem('rememberLogin', 'true');
+        }
+        
+        toast.success('Welcome back!', {
+          description: 'Login successful',
+          className: 'bg-success text-success-foreground border-success'
+        });
         window.location.href = '/clock';
       }
     } catch (error) {
-      toast.error('An unexpected error occurred');
+      const errorMsg = 'An unexpected error occurred';
+      setError(errorMsg);
+      toast.error('Error', {
+        description: errorMsg,
+        className: 'bg-error text-error-foreground border-error'
+      });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <Card className="border-0 shadow-lg">
-          <CardHeader className="text-center pb-4">
-            <div className="mx-auto mb-4 p-2 bg-primary/10 rounded-lg w-24 h-16 flex items-center justify-center overflow-hidden">
+        <Card className="border-0 shadow-xl backdrop-blur-sm bg-card/95 animate-slide-in-up">
+          <CardHeader className="text-center pb-6">
+            <div className="mx-auto mb-6 p-4 bg-card rounded-2xl shadow-lg w-32 h-24 flex items-center justify-center overflow-hidden animate-bounce-in">
               <img 
                 src={pioneerLogo} 
                 alt="Pioneer Construction" 
                 className="max-w-full max-h-full object-contain"
               />
             </div>
-            <CardTitle className="text-2xl font-bold">Time Keeper</CardTitle>
-            <p className="text-muted-foreground">Construction Time Tracking</p>
+            <CardTitle className="text-3xl font-bold text-foreground">Time Keeper</CardTitle>
+            <p className="text-muted-foreground text-lg">Construction Time Tracking</p>
           </CardHeader>
-          <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
+          <CardContent className="space-y-6">
+            {error && (
+              <div className="p-4 rounded-lg bg-error/10 border border-error/20 flex items-center gap-3 animate-slide-in-up">
+                <AlertCircle className="h-5 w-5 text-error flex-shrink-0" />
+                <p className="text-sm text-error font-medium">{error}</p>
+              </div>
+            )}
+            
+            <form onSubmit={handleLogin} className="space-y-5">
+              <div className="space-y-4">
                 <Input
                   type="email"
-                  placeholder="Email"
+                  placeholder="Email address"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="h-12 text-base"
+                  className="h-14 text-base border-2 focus:border-primary transition-all duration-200"
                   required
                   autoComplete="email"
                 />
-              </div>
-              <div>
                 <Input
                   type="password"
                   placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="h-12 text-base"
+                  className="h-14 text-base border-2 focus:border-primary transition-all duration-200"
                   required
                   autoComplete="current-password"
                 />
               </div>
+
+              <div className="flex items-center space-x-3">
+                <Checkbox
+                  id="remember"
+                  checked={rememberMe}
+                  onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                  className="border-2"
+                />
+                <label 
+                  htmlFor="remember" 
+                  className="text-sm font-medium text-foreground cursor-pointer"
+                >
+                  Remember me
+                </label>
+              </div>
+
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full h-12 text-base font-semibold"
+                className="w-full h-14 text-base font-semibold bg-gradient-primary hover:shadow-lg transition-all duration-200 active:scale-[0.98]"
               >
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {loading ? 'Logging in...' : 'Login'}
+                {loading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
+                {loading ? 'Signing in...' : 'Sign In'}
               </Button>
             </form>
           </CardContent>
