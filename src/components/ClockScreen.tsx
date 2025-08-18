@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Camera, MapPin, Clock, LogOut, Loader2, User, HelpCircle, X, Check } from 'lucide-react';
+import { Camera, MapPin, Clock, LogOut, Loader2, User, HelpCircle, X, Check, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import pioneerLogo from '@/assets/pioneer-logo.png';
 
@@ -60,7 +60,7 @@ export default function ClockScreen() {
   // Expense management state
   const [selectedExpenses, setSelectedExpenses] = useState<string[]>([]);
   const [expenseTypes, setExpenseTypes] = useState<ExpenseType[]>([]);
-  const [showExpenseDialog, setShowExpenseDialog] = useState(false);
+  const [submittingExpenses, setSubmittingExpenses] = useState(false);
   const [loadingExpenses, setLoadingExpenses] = useState(false);
   const [currentShiftExpenses, setCurrentShiftExpenses] = useState<any[]>([]);
 
@@ -145,16 +145,24 @@ export default function ClockScreen() {
     setLoadingExpenses(false);
   };
 
-  const fetchCurrentShiftExpenses = async (clockEntryId: string) => {
-    const { data, error } = await supabase
-      .from('additional_costs')
-      .select('*, expense_types(name, amount)')
-      .eq('clock_entry_id', clockEntryId);
+  const fetchCurrentShiftExpenses = async (clockEntryId?: string) => {
+    const entryId = clockEntryId || currentEntry?.id;
+    if (!entryId) return;
     
-    if (!error && data) {
-      setCurrentShiftExpenses(data);
+    try {
+      const { data, error } = await supabase
+        .from('additional_costs')
+        .select('*, expense_types(name, amount)')
+        .eq('clock_entry_id', entryId);
+      
+      if (!error && data) {
+        setCurrentShiftExpenses(data);
+      }
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching shift expenses:', error);
+      return [];
     }
-    return data || [];
   };
 
   const checkCurrentStatus = async () => {
@@ -366,11 +374,6 @@ export default function ClockScreen() {
       
       setCurrentEntry(data);
       toast.success('Clocked in successfully!');
-      
-      // Show expense dialog after successful clock-in
-      if (expenseTypes.length > 0) {
-        setShowExpenseDialog(true);
-      }
     } catch (error) {
       console.error('Clock in error:', error);
       toast.error('Failed to clock in');
@@ -460,47 +463,61 @@ export default function ClockScreen() {
   }, 0);
 
   const handleExpenseSubmit = async () => {
-    if (!currentEntry || !worker) return;
+    if (selectedExpenses.length === 0 || !currentEntry) return;
     
-    setLoadingExpenses(true);
+    setSubmittingExpenses(true);
     try {
-      // Save selected expenses to additional_costs table
-      if (selectedExpenses.length > 0) {
-        const expenseInserts = selectedExpenses.map(expenseId => {
-          const expense = expenseTypes.find(e => e.id === expenseId);
-          return {
+      // Get the authenticated user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+      
+      // Get worker ID from the user's email
+      const { data: worker } = await supabase
+        .from('workers')
+        .select('id')
+        .eq('email', user.email)
+        .single();
+      
+      if (!worker) throw new Error('Worker not found');
+      
+      // Submit each selected expense
+      const promises = selectedExpenses.map(async (expenseId) => {
+        const expense = expenseTypes.find(e => e.id === expenseId);
+        if (!expense) return;
+        
+        return supabase
+          .from('additional_costs')
+          .insert({
             clock_entry_id: currentEntry.id,
             worker_id: worker.id,
-            date: new Date().toISOString().split('T')[0],
-            description: expense?.name,
-            amount: expense?.amount,
+            description: expense.name,
+            amount: expense.amount,
+            expense_type_id: expense.id,
             cost_type: 'expense_claim',
-            expense_type_id: expenseId
-          };
-        });
-        
-        const { error } = await supabase
-          .from('additional_costs')
-          .insert(expenseInserts);
-        
-        if (error) {
-          toast.error('Failed to save expenses');
-          return;
-        }
-        
-        toast.success(`${selectedExpenses.length} expense(s) added to shift`);
-        
-        // Refresh current shift expenses
-        fetchCurrentShiftExpenses(currentEntry.id);
+            date: new Date().toISOString().split('T')[0]
+          });
+      });
+      
+      const results = await Promise.all(promises);
+      const errors = results.filter(r => r?.error);
+      
+      if (errors.length > 0) {
+        throw new Error(errors[0].error.message);
       }
       
-      setShowExpenseDialog(false);
+      toast.success(`${selectedExpenses.length} expense(s) added successfully!`, {
+        duration: 4000,
+      });
+      
+      // Clear selection and refresh claimed expenses
       setSelectedExpenses([]);
+      fetchCurrentShiftExpenses();
     } catch (error) {
-      console.error('Expense submission error:', error);
-      toast.error('Failed to save expenses');
+      console.error('Error submitting expenses:', error);
+      toast.error(error.message || 'Failed to add expenses');
+    } finally {
+      setSubmittingExpenses(false);
     }
-    setLoadingExpenses(false);
   };
 
   if (!worker) return null;
@@ -640,47 +657,31 @@ export default function ClockScreen() {
             </>
           )}
         </div>
-      </div>
 
-      {/* Expense Selection Dialog */}
-      {showExpenseDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-background rounded-lg shadow-xl max-w-md w-full max-h-[80vh] overflow-hidden">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-foreground">Add Expenses (Optional)</h3>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    setShowExpenseDialog(false);
-                    setSelectedExpenses([]);
-                  }}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
+        {/* Inline Expense Management Section */}
+        {currentEntry && (
+          <Card>
+            <CardContent className="p-6">
+              <h3 className="text-lg font-semibold mb-4 flex items-center">
+                <Wallet className="w-5 h-5 mr-2 text-blue-600" />
+                Claim Expenses
+              </h3>
               
-              <p className="text-sm text-muted-foreground mb-4">
-                Select any expenses to claim for this shift:
-              </p>
-              
-              <div className="space-y-2 mb-6 max-h-60 overflow-y-auto">
-                {loadingExpenses ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                    <span className="ml-2 text-sm text-muted-foreground">Loading expenses...</span>
-                  </div>
-                ) : expenseTypes.length > 0 ? (
-                  expenseTypes.map((expense) => (
-                    <label 
-                      key={expense.id} 
-                      className="flex items-center p-3 border rounded-lg hover:bg-accent cursor-pointer transition-colors"
-                    >
-                      <div className="relative">
+              {loadingExpenses ? (
+                <div className="space-y-3">
+                  {[1,2,3].map(i => (
+                    <div key={i} className="h-16 bg-gray-100 rounded-lg animate-pulse" />
+                  ))}
+                </div>
+              ) : expenseTypes.length > 0 ? (
+                <>
+                  <p className="text-sm text-muted-foreground mb-4">Select expenses to add to this shift:</p>
+                  <div className="space-y-2">
+                    {expenseTypes.map((expense) => (
+                      <label key={expense.id} className="flex items-center p-4 border rounded-lg hover:bg-accent cursor-pointer transition-colors">
                         <input
                           type="checkbox"
-                          className="sr-only"
+                          className="mr-3 w-5 h-5 text-blue-600"
                           checked={selectedExpenses.includes(expense.id)}
                           onChange={(e) => {
                             if (e.target.checked) {
@@ -690,71 +691,72 @@ export default function ClockScreen() {
                             }
                           }}
                         />
-                        <div className={`w-5 h-5 border-2 rounded flex items-center justify-center ${
-                          selectedExpenses.includes(expense.id) 
-                            ? 'bg-primary border-primary' 
-                            : 'border-border'
-                        }`}>
-                          {selectedExpenses.includes(expense.id) && (
-                            <Check className="w-3 h-3 text-primary-foreground" />
+                        <div className="flex-1">
+                          <div className="font-medium">{expense.name}</div>
+                          <div className="text-sm text-blue-600 font-semibold">£{expense.amount.toFixed(2)}</div>
+                          {expense.description && (
+                            <div className="text-xs text-muted-foreground mt-1">{expense.description}</div>
                           )}
                         </div>
-                      </div>
-                      <div className="flex-1 ml-3">
-                        <div className="font-medium text-foreground">{expense.name}</div>
-                        <div className="text-sm text-muted-foreground">£{expense.amount.toFixed(2)}</div>
-                        {expense.description && (
-                          <div className="text-xs text-muted-foreground mt-1">{expense.description}</div>
-                        )}
-                      </div>
-                    </label>
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <p>No expense types available</p>
+                      </label>
+                    ))}
                   </div>
-                )}
-              </div>
-              
-              {selectedExpenses.length > 0 && (
-                <div className="mb-4 p-3 bg-primary/10 rounded-lg">
-                  <div className="flex justify-between font-medium text-foreground">
-                    <span>Total Expenses:</span>
-                    <span>£{totalSelectedExpenses.toFixed(2)}</span>
-                  </div>
+                  
+                  {selectedExpenses.length > 0 && (
+                    <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium">Total Selected:</span>
+                        <span className="text-lg font-bold text-blue-600">
+                          £{selectedExpenses.reduce((sum, id) => {
+                            const expense = expenseTypes.find(e => e.id === id);
+                            return sum + (expense?.amount || 0);
+                          }, 0).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <Button
+                    onClick={handleExpenseSubmit}
+                    disabled={selectedExpenses.length === 0 || submittingExpenses}
+                    className={`w-full mt-4 py-3 font-medium transition-colors ${
+                      selectedExpenses.length > 0 
+                        ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    {submittingExpenses ? (
+                      <span className="flex items-center justify-center">
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Adding Expenses...
+                      </span>
+                    ) : (
+                      `Add ${selectedExpenses.length} Expense${selectedExpenses.length !== 1 ? 's' : ''} to Shift`
+                    )}
+                  </Button>
+                  
+                  {currentShiftExpenses.length > 0 && (
+                    <div className="mt-4 p-3 bg-green-50 rounded-lg">
+                      <p className="text-sm font-medium text-green-800 mb-2">Already Claimed:</p>
+                      {currentShiftExpenses.map((expense, idx) => (
+                        <div key={idx} className="text-sm text-green-700">
+                          • {expense.description}: £{expense.amount.toFixed(2)}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Wallet className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p>No expense types available</p>
                 </div>
               )}
-              
-              <div className="flex gap-3">
-                <Button
-                  onClick={handleExpenseSubmit}
-                  disabled={loadingExpenses}
-                  className="flex-1"
-                  size="lg"
-                >
-                  {loadingExpenses && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {selectedExpenses.length > 0 
-                    ? `Add ${selectedExpenses.length} Expense${selectedExpenses.length > 1 ? 's' : ''}` 
-                    : 'Skip'
-                  }
-                </Button>
-                {selectedExpenses.length > 0 && (
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setShowExpenseDialog(false);
-                      setSelectedExpenses([]);
-                    }}
-                    disabled={loadingExpenses}
-                  >
-                    Skip
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
     </div>
   );
 }
