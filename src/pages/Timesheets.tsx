@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { format, startOfWeek, endOfWeek, differenceInMinutes, parseISO, addDays } from 'date-fns';
-import { Calendar, Clock, Edit2, Plus, ChevronLeft, ChevronRight, AlertCircle, DollarSign, ArrowLeft } from 'lucide-react';
+import { Calendar, Clock, Edit2, Plus, ChevronLeft, ChevronRight, AlertCircle, DollarSign, ArrowLeft, Construction } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Timesheets() {
@@ -307,28 +307,28 @@ export default function Timesheets() {
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="bg-card rounded-lg shadow-sm p-4 mb-4 border border-border">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate('/')}
-              className="p-2 hover:bg-accent rounded-lg transition-colors"
-              title="Back to Clock Screen"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <Calendar className="w-6 h-6 text-primary" />
-              My Timesheets
-            </h1>
+        <header className="bg-gradient-to-r from-[#1E3A5F] to-[#FF6B35] text-white p-4 shadow-lg rounded-lg mb-4">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => navigate('/')}
+                className="mr-4 p-2 hover:bg-white/20 rounded-lg transition-colors duration-200"
+                title="Back to Clock Screen"
+              >
+                <ArrowLeft className="w-5 h-5 text-white" />
+              </button>
+              <Construction className="w-6 h-6" />
+              <span className="font-bold text-xl">Pioneer Auto Timesheets</span>
+            </div>
           </div>
-        </div>
+        </header>
 
         {/* Week Navigation */}
-        <div className="bg-card rounded-lg shadow-sm p-4 mb-4 border border-border">
+        <div className="bg-card rounded-lg shadow-sm p-4 mb-4 border border-border border-l-4 border-[#FF6B35]">
           <div className="flex items-center justify-between">
             <button
               onClick={() => setCurrentWeek(addDays(currentWeek, -7))}
-              className="p-2 hover:bg-accent rounded-lg transition-colors"
+              className="p-2 bg-[#FF6B35] hover:bg-[#E85A2A] text-white rounded-lg transition-colors shadow-md"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
@@ -346,7 +346,7 @@ export default function Timesheets() {
             </div>
             <button
               onClick={() => setCurrentWeek(addDays(currentWeek, 7))}
-              className="p-2 hover:bg-accent rounded-lg transition-colors"
+              className="p-2 bg-[#FF6B35] hover:bg-[#E85A2A] text-white rounded-lg transition-colors shadow-md"
             >
               <ChevronRight className="w-5 h-5" />
             </button>
@@ -367,15 +367,15 @@ export default function Timesheets() {
         ) : (
           <div className="space-y-4">
             {Object.entries(entriesByDay).map(([day, dayEntries]) => (
-              <div key={day} className="bg-card rounded-lg shadow-sm overflow-hidden border border-border">
-                <div className="bg-muted/50 px-4 py-2 border-b border-border">
+              <div key={day} className="bg-card rounded-lg shadow-sm overflow-hidden border border-border border-l-4 border-[#FF6B35]">
+                <div className="bg-gradient-to-r from-[#1E3A5F] to-[#FF6B35] text-white px-4 py-2 border-b border-border">
                   <div className="flex justify-between items-center">
-                    <span className="font-semibold text-foreground">{format(parseISO(day), 'EEEE, MMM d')}</span>
+                    <span className="font-semibold text-white">{format(parseISO(day), 'EEEE, MMM d')}</span>
                     <div className="text-right">
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-sm text-white/90">
                         {calculateDayHours(dayEntries as any[]).toFixed(2)} hours | £{calculateDayTotalPay(dayEntries as any[]).toFixed(2)} total
                       </div>
-                      <div className="text-xs text-muted-foreground">
+                      <div className="text-xs text-white/80">
                         Hours: £{calculateDayHoursPay(dayEntries as any[]).toFixed(2)} + Expenses: £{calculateDayExpenses(dayEntries as any[]).toFixed(2)}
                       </div>
                     </div>
@@ -417,9 +417,9 @@ export default function Timesheets() {
                           {hasAmendment(entry.id) && (
                             <div className="mt-2">
                               <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full
-                                ${getAmendmentStatus(entry.id) === 'pending' ? 'bg-warning/20 text-warning-foreground' : 
-                                  getAmendmentStatus(entry.id) === 'approved' ? 'bg-success/20 text-success-foreground' : 
-                                  'bg-error/20 text-error-foreground'}`}>
+                               ${getAmendmentStatus(entry.id) === 'pending' ? 'bg-[#FF6B35]/20 text-[#FF6B35]' : 
+                                  getAmendmentStatus(entry.id) === 'approved' ? 'bg-[#48BB78]/20 text-[#48BB78]' : 
+                                  'bg-[#F56565]/20 text-[#F56565]'}`}>
                                 <AlertCircle className="w-3 h-3" />
                                 Amendment {getAmendmentStatus(entry.id)}
                               </span>
@@ -437,7 +437,7 @@ export default function Timesheets() {
                                 setShowAmendmentDialog(true);
                               }}
                               disabled={hasAmendment(entry.id)}
-                              className="p-2 text-muted-foreground hover:bg-accent rounded-lg transition-colors disabled:opacity-50"
+                              className="p-2 text-[#FF6B35] hover:bg-orange-50 rounded-lg transition-colors disabled:opacity-50"
                               title="Request Amendment"
                             >
                               <Edit2 className="w-4 h-4" />
@@ -447,7 +447,7 @@ export default function Timesheets() {
                                 setSelectedEntry(entry);
                                 setShowExpenseDialog(true);
                               }}
-                              className="p-2 text-muted-foreground hover:bg-accent rounded-lg transition-colors"
+                              className="p-2 text-[#1E3A5F] hover:bg-blue-50 rounded-lg transition-colors"
                               title="Add Expenses"
                             >
                               <DollarSign className="w-4 h-4" />
@@ -540,7 +540,7 @@ export default function Timesheets() {
                 <button
                   onClick={handleAmendmentSubmit}
                   disabled={!amendmentReason}
-                  className="flex-1 bg-primary text-primary-foreground py-3 rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  className="flex-1 bg-[#FF6B35] hover:bg-[#E85A2A] text-white py-3 rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 disabled:opacity-50"
                 >
                   Submit Request
                 </button>
@@ -612,7 +612,7 @@ export default function Timesheets() {
                   className={`flex-1 py-3 rounded-lg font-medium transition-colors ${
                     savingExpenses 
                       ? 'bg-muted cursor-not-allowed' 
-                      : 'bg-primary hover:bg-primary/90 text-primary-foreground'
+                      : 'bg-[#FF6B35] hover:bg-[#E85A2A] text-white shadow-lg hover:shadow-xl transform hover:scale-105'
                   }`}
                 >
                   {savingExpenses ? 'Saving...' : selectedExpenses.length > 0 ? `Add ${selectedExpenses.length} Expense(s)` : 'Cancel'}

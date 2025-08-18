@@ -4,9 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, Construction } from 'lucide-react';
 import { toast } from 'sonner';
-import pioneerLogo from '@/assets/pioneer-logo.png';
+import { PioneerLogoBrand } from '@/components/PioneerLogo';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -70,9 +70,9 @@ export default function Login() {
           localStorage.setItem('rememberLogin', 'true');
         }
         
-        toast.success('Welcome back!', {
+        toast.success('Welcome to Pioneer Auto Timesheets!', {
           description: 'Login successful',
-          className: 'bg-success text-success-foreground border-success'
+          className: 'bg-success text-success-foreground border-l-4 border-[#FF6B35]'
         });
         window.location.href = '/clock';
       }
@@ -91,17 +91,13 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-gradient-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <Card className="border-0 shadow-xl backdrop-blur-sm bg-card/95 animate-slide-in-up">
+        <Card className="border-0 shadow-xl backdrop-blur-sm bg-card/95 animate-slide-in-up border-l-4 border-[#FF6B35]">
           <CardHeader className="text-center pb-6">
-            <div className="mx-auto mb-6 p-4 bg-card rounded-2xl shadow-lg w-32 h-24 flex items-center justify-center overflow-hidden animate-bounce-in">
-              <img 
-                src={pioneerLogo} 
-                alt="Pioneer Construction" 
-                className="max-w-full max-h-full object-contain"
-              />
+            <div className="flex justify-center mb-8">
+              <PioneerLogoBrand />
             </div>
-            <CardTitle className="text-3xl font-bold text-foreground">Time Keeper</CardTitle>
-            <p className="text-muted-foreground text-lg">Construction Time Tracking</p>
+            <CardTitle className="text-3xl font-bold text-foreground">Pioneer Auto Timesheets</CardTitle>
+            <p className="text-muted-foreground text-lg">Worker Portal</p>
           </CardHeader>
           <CardContent className="space-y-6">
             {error && (
@@ -151,7 +147,7 @@ export default function Login() {
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full h-14 text-base font-semibold bg-gradient-primary hover:shadow-lg transition-all duration-200 active:scale-[0.98]"
+                className="w-full h-14 text-base font-semibold bg-[#FF6B35] hover:bg-[#E85A2A] text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
               >
                 {loading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
                 {loading ? 'Signing in...' : 'Sign In'}

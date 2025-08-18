@@ -4,9 +4,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Camera, MapPin, Clock, LogOut, Loader2, User, HelpCircle, X, Check, Wallet, RefreshCw } from 'lucide-react';
+import { Camera, MapPin, Clock, LogOut, Loader2, User, HelpCircle, X, Check, Wallet, RefreshCw, Construction } from 'lucide-react';
 import { toast } from 'sonner';
-import pioneerLogo from '@/assets/pioneer-logo.png';
+import { PioneerLogo } from '@/components/PioneerLogo';
 
 interface Worker {
   id: string;
@@ -577,48 +577,47 @@ export default function ClockScreen() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-card shadow-sm px-4 py-3 flex justify-between items-center border-b">
-        <div className="flex items-center gap-3">
-          <img 
-            src={pioneerLogo} 
-            alt="Pioneer Construction" 
-            className="h-8 w-12 object-contain"
-          />
-          <div>
-            <h1 className="text-lg font-bold text-foreground">{worker.name}</h1>
-            <p className="text-xs text-muted-foreground">Time Keeper</p>
+      <header className="bg-gradient-to-r from-[#1E3A5F] to-[#FF6B35] text-white p-4 shadow-lg">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Construction className="w-6 h-6" />
+            <div>
+              <span className="font-bold text-xl">Pioneer Auto Timesheets</span>
+              <p className="text-xs text-white/80">{worker.name}</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={handleRefreshJobs}
+              disabled={refreshingJobs}
+              title="Refresh job sites"
+              className="text-white hover:bg-white/20"
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshingJobs ? 'animate-spin' : ''}`} />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={() => navigate('/profile')} className="text-white hover:bg-white/20">
+              <User className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={() => navigate('/help')} className="text-white hover:bg-white/20">
+              <HelpCircle className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={handleLogout} className="text-white hover:bg-white/20">
+              <LogOut className="w-4 h-4" />
+            </Button>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={handleRefreshJobs}
-            disabled={refreshingJobs}
-            title="Refresh job sites"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshingJobs ? 'animate-spin' : ''}`} />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={() => navigate('/profile')}>
-            <User className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={() => navigate('/help')}>
-            <HelpCircle className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={handleLogout}>
-            <LogOut className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
+      </header>
 
       <div className="p-4 space-y-6">
         {/* Current Time */}
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-mono font-bold text-foreground">
+        <Card className="border-l-4 border-[#FF6B35] shadow-md hover:shadow-lg transition-shadow">
+          <CardContent className="p-4 text-center bg-[#1E3A5F] text-white">
+            <div className="text-2xl font-mono font-bold">
               {currentTime.toLocaleTimeString()}
             </div>
-            <div className="text-sm text-muted-foreground">
+            <div className="text-sm text-white/80">
               {currentTime.toLocaleDateString()}
             </div>
           </CardContent>
@@ -676,8 +675,7 @@ export default function ClockScreen() {
             <Button
               onClick={handleClockOut}
               disabled={loading}
-              className="w-full h-14 text-lg font-semibold bg-red-600 hover:bg-red-700"
-              size="lg"
+              className="w-full py-6 bg-[#1E3A5F] hover:bg-[#152B47] text-white font-bold text-xl rounded-lg shadow-lg transition-all duration-200 transform hover:scale-105"
             >
               {loading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
               <Camera className="mr-2 h-5 w-5" />
@@ -724,8 +722,7 @@ export default function ClockScreen() {
               <Button
                 onClick={handleClockIn}
                 disabled={loading || !selectedJobId || !location}
-                className="w-full h-14 text-lg font-semibold"
-                size="lg"
+                className="w-full py-6 bg-[#FF6B35] hover:bg-[#E85A2A] text-white font-bold text-xl rounded-lg shadow-lg transition-all duration-200 transform hover:scale-105"
               >
                 {loading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
                 <Camera className="mr-2 h-5 w-5" />
@@ -751,9 +748,9 @@ export default function ClockScreen() {
 
         {/* Timesheet Navigation */}
         <Button
-          variant="secondary"
+          variant="outline"
           onClick={() => navigate('/timesheets')}
-          className="w-full"
+          className="w-full border-2 border-[#FF6B35] text-[#FF6B35] hover:bg-[#FF6B35] hover:text-white shadow-md hover:shadow-lg transition-all duration-200"
           size="lg"
         >
           <Clock className="mr-2 h-5 w-5" />

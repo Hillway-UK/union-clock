@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Smartphone, Download, Home, Share, Plus, ChevronLeft } from 'lucide-react';
+import { Smartphone, Download, Home, Share, Plus, ChevronLeft, Construction } from 'lucide-react';
 
 export default function InstallGuide() {
   const navigate = useNavigate();
@@ -9,29 +9,34 @@ export default function InstallGuide() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-white shadow-sm px-6 py-4 flex items-center">
-        <button 
-          onClick={() => navigate('/')}
-          className="mr-4 p-1"
-        >
-          <ChevronLeft className="w-6 h-6" />
-        </button>
-        <h1 className="text-xl font-bold">How To Install</h1>
-      </div>
+      <header className="bg-gradient-to-r from-[#1E3A5F] to-[#FF6B35] text-white p-4 shadow-lg">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <button 
+              onClick={() => navigate('/')}
+              className="mr-4 p-2 hover:bg-white/20 rounded-lg transition-colors duration-200"
+            >
+              <ChevronLeft className="w-6 h-6 text-white" />
+            </button>
+            <Construction className="w-6 h-6" />
+            <span className="font-bold text-xl">Install Guide</span>
+          </div>
+        </div>
+      </header>
 
       <div className="p-4">
         <div className="max-w-md mx-auto space-y-6">
-          <Card>
+          <Card className="border-l-4 border-[#FF6B35] shadow-md hover:shadow-lg transition-shadow">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Smartphone className="h-5 w-5" />
-              Install Time Keeper
+              <Smartphone className="h-5 w-5 text-[#FF6B35]" />
+              Install Pioneer Auto Timesheets
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="text-center">
               <p className="text-muted-foreground mb-4">
-                Install Time Keeper as an app on your iPhone for the best experience!
+                Install Pioneer Auto Timesheets as an app on your iPhone for the best experience!
               </p>
             </div>
 
@@ -40,16 +45,16 @@ export default function InstallGuide() {
               <h3 className="font-semibold text-lg">iOS Installation Steps:</h3>
               
               <div className="space-y-4">
-                <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                  <div className="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">1</div>
+                <div className="flex items-start gap-3 p-3 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                  <div className="bg-[#FF6B35] text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">1</div>
                   <div>
                     <p className="font-medium">Open in Safari</p>
                     <p className="text-sm text-muted-foreground">Make sure you're viewing this page in Safari browser</p>
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                  <div className="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">2</div>
+                <div className="flex items-start gap-3 p-3 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                  <div className="bg-[#FF6B35] text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">2</div>
                   <div className="flex-1">
                     <p className="font-medium flex items-center gap-2">
                       Tap the Share button
@@ -59,8 +64,8 @@ export default function InstallGuide() {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                  <div className="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">3</div>
+                <div className="flex items-start gap-3 p-3 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                  <div className="bg-[#FF6B35] text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">3</div>
                   <div className="flex-1">
                     <p className="font-medium flex items-center gap-2">
                       Select "Add to Home Screen"
@@ -70,22 +75,22 @@ export default function InstallGuide() {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                  <div className="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">4</div>
+                <div className="flex items-start gap-3 p-3 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                  <div className="bg-[#FF6B35] text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">4</div>
                   <div>
                     <p className="font-medium">Confirm Installation</p>
-                    <p className="text-sm text-muted-foreground">Tap "Add" to install Time Keeper to your home screen</p>
+                    <p className="text-sm text-muted-foreground">Tap "Add" to install Pioneer Auto Timesheets to your home screen</p>
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                <div className="flex items-start gap-3 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800 border-l-4 border-[#FF6B35]">
                   <div className="bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">✓</div>
                   <div className="flex-1">
                     <p className="font-medium flex items-center gap-2">
                       Done!
                       <Home className="h-4 w-4" />
                     </p>
-                    <p className="text-sm text-muted-foreground">Time Keeper is now installed on your home screen like a native app</p>
+                    <p className="text-sm text-muted-foreground">Pioneer Auto Timesheets is now installed on your home screen like a native app</p>
                   </div>
                 </div>
               </div>
@@ -96,7 +101,7 @@ export default function InstallGuide() {
               <h3 className="font-semibold">Benefits of Installing:</h3>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
+                  <div className="w-1.5 h-1.5 bg-[#FF6B35] rounded-full"></div>
                   Works offline for better reliability
                 </li>
                 <li className="flex items-center gap-2">

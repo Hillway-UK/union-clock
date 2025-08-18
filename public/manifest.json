@@ -1,10 +1,10 @@
 {
-  "name": "Time Keeper",
-  "short_name": "Time Keeper",
+  "name": "Pioneer Auto Timesheets",
+  "short_name": "Pioneer Timesheets",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "theme_color": "#3B82F6",
+  "theme_color": "#1E3A5F",
   "background_color": "#ffffff",
   "icons": [
     {

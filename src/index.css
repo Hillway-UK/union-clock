@@ -48,9 +48,15 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 213 31% 15%;
 
-    --primary: 217 91% 60%;
+    --primary: 16 85% 60%; /* Pioneer Orange #FF6B35 */
     --primary-foreground: 0 0% 100%;
-    --primary-dark: 217 91% 45%;
+    --primary-dark: 16 85% 45%;
+    --pioneer-orange: 16 85% 60%;
+    --pioneer-navy: 209 55% 25%; /* #1E3A5F */
+    --pioneer-grey: 215 10% 31%; /* #4A5568 */
+    --pioneer-light-grey: 210 31% 80%; /* #E2E8F0 */
+    --pioneer-success: 142 76% 36%;
+    --pioneer-danger: 0 84% 60%;
 
     --secondary: 210 40% 94%;
     --secondary-foreground: 213 31% 15%;
@@ -79,10 +85,10 @@ All colors MUST be HSL.
     --error-foreground: 0 0% 100%;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)));
+    --gradient-primary: linear-gradient(135deg, hsl(var(--pioneer-orange)), hsl(var(--primary-dark)));
     --gradient-success: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 76% 28%));
     --gradient-error: linear-gradient(135deg, hsl(0 84% 60%), hsl(0 84% 50%));
-    --gradient-background: linear-gradient(135deg, hsl(217 91% 60%), hsl(217 91% 45%));
+    --gradient-background: linear-gradient(135deg, hsl(var(--pioneer-navy)), hsl(var(--pioneer-orange)));
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
