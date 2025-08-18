@@ -785,6 +785,30 @@ export default function ClockScreen() {
           </Card>
         )}
 
+        {/* Notification Toggle */}
+        <Button
+          variant="outline"
+          onClick={toggleNotifications}
+          className={`w-full border-2 font-heading font-semibold shadow-md hover:shadow-lg transition-all duration-200 ${
+            notificationsEnabled 
+              ? 'border-green-500 text-green-700 hover:bg-green-50' 
+              : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+          }`}
+          size="lg"
+        >
+          {notificationsEnabled ? (
+            <>
+              <Bell className="mr-2 h-5 w-5" />
+              Notifications Enabled
+            </>
+          ) : (
+            <>
+              <BellOff className="mr-2 h-5 w-5" />
+              Enable Notifications
+            </>
+          )}
+        </Button>
+
         {/* Timesheet Navigation */}
         <Button
           variant="outline"
