@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Camera, MapPin, Clock, LogOut, Loader2, User, HelpCircle, X, Check, Wallet } from 'lucide-react';
+import { Camera, MapPin, Clock, LogOut, Loader2, User, HelpCircle, X, Check, Wallet, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import pioneerLogo from '@/assets/pioneer-logo.png';
 
@@ -63,6 +63,7 @@ export default function ClockScreen() {
   const [submittingExpenses, setSubmittingExpenses] = useState(false);
   const [loadingExpenses, setLoadingExpenses] = useState(false);
   const [currentShiftExpenses, setCurrentShiftExpenses] = useState<any[]>([]);
+  const [refreshingJobs, setRefreshingJobs] = useState(false);
 
   useEffect(() => {
     // Load worker data
@@ -116,7 +117,7 @@ export default function ClockScreen() {
     };
   }, []);
 
-  const loadJobs = async () => {
+  const loadJobs = async (showToast = false) => {
     const { data, error } = await supabase
       .from('jobs')
       .select('*')
@@ -125,14 +126,28 @@ export default function ClockScreen() {
       
     if (error) {
       toast.error('Failed to load jobs');
+      console.error('Job loading error:', error);
       return;
     }
     
     setJobs(data || []);
+    if (showToast) {
+      toast.success(`${data?.length || 0} job sites loaded`);
+    }
+  };
+
+  const handleRefreshJobs = async () => {
+    setRefreshingJobs(true);
+    try {
+      await loadJobs(true);
+    } finally {
+      setRefreshingJobs(false);
+    }
   };
 
   const fetchExpenseTypes = async () => {
     setLoadingExpenses(true);
+    console.log('🔧 DEBUG: Fetching expense types...');
     try {
       const { data, error } = await supabase
         .from('expense_types')
@@ -141,17 +156,19 @@ export default function ClockScreen() {
         .order('name');
       
       if (error) {
-        console.error('Error fetching expense types:', error);
-        // Silent fail - don't show toast error
+        console.error('❌ ERROR fetching expense types:', error);
         return;
       }
       
       if (data) {
+        console.log('✅ SUCCESS: Loaded expense types:', data.length, 'items');
+        console.log('Expense types data:', data);
         setExpenseTypes(data);
+      } else {
+        console.log('⚠️  No expense types data returned');
       }
     } catch (err) {
-      console.error('Failed to fetch expense types:', err);
-      // Silent fail - just log
+      console.error('❌ EXCEPTION in fetchExpenseTypes:', err);
     } finally {
       setLoadingExpenses(false);
     }
@@ -179,6 +196,8 @@ export default function ClockScreen() {
 
   const checkCurrentStatus = async () => {
     const workerData = JSON.parse(localStorage.getItem('worker') || '{}');
+    console.log('🔧 DEBUG: Checking current status for worker:', workerData.id);
+    
     const { data } = await supabase
       .from('clock_entries')
       .select('*, jobs(name)')
@@ -186,11 +205,15 @@ export default function ClockScreen() {
       .is('clock_out', null)
       .single();
     
+    console.log('🔧 DEBUG: Current entry data:', data);
     setCurrentEntry(data);
     
     // Fetch expenses for current shift if clocked in
     if (data) {
+      console.log('✅ Worker is clocked in, fetching expenses for entry:', data.id);
       fetchCurrentShiftExpenses(data.id);
+    } else {
+      console.log('⚠️  Worker is not clocked in');
     }
   };
 
@@ -631,9 +654,20 @@ export default function ClockScreen() {
             <>
               <Card>
                 <CardContent className="p-4">
-                  <label className="text-sm font-medium text-foreground mb-2 block">
-                    Select Job Site
-                  </label>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-sm font-medium text-foreground">
+                      Select Job Site
+                    </label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRefreshJobs}
+                      disabled={refreshingJobs}
+                      className="h-8 px-2"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${refreshingJobs ? 'animate-spin' : ''}`} />
+                    </Button>
+                  </div>
                   <Select value={selectedJobId} onValueChange={setSelectedJobId}>
                     <SelectTrigger className="h-12">
                       <SelectValue placeholder="Choose a job site" />
@@ -646,6 +680,11 @@ export default function ClockScreen() {
                       ))}
                     </SelectContent>
                   </Select>
+                  {jobs.length === 0 && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      No job sites available. Try refreshing.
+                    </p>
+                  )}
                 </CardContent>
               </Card>
               
