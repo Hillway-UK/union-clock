@@ -526,13 +526,30 @@ export default function ClockScreen() {
               description: expense.name,
               amount: expense.amount,
               expense_type_id: expense.id,
-              cost_type: 'expense',
+              cost_type: 'other',
               date: new Date().toISOString().split('T')[0]
             });
           
+          console.log('Attempting to insert expense:', {
+            worker_id: worker.id,
+            clock_entry_id: currentEntry.id,
+            description: expense.name,
+            amount: expense.amount,
+            expense_type_id: expense.id,
+            cost_type: 'other',
+            date: new Date().toISOString().split('T')[0]
+          });
+          
           if (error) {
             console.error('Error adding expense:', error);
-            throw new Error(`Failed to add ${expense.name}: ${error.message}`);
+            // Specific error handling for different constraint violations
+            if (error.code === '23514') {
+              throw new Error(`Check constraint violation: ${expense.name}. Please contact support.`);
+            } else if (error.code === '23505') {
+              throw new Error(`${expense.name} has already been claimed.`);
+            } else {
+              throw new Error(`Failed to add ${expense.name}: ${error.message}`);
+            }
           }
         }
       }
