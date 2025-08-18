@@ -72,6 +72,35 @@ export default function ClockScreen() {
     return () => clearInterval(timeInterval);
   }, []);
 
+  // Real-time jobs listener
+  useEffect(() => {
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'jobs'
+        },
+        (payload) => {
+          console.log('Job change detected:', payload);
+          // Reload jobs when any change occurs
+          loadJobs();
+          
+          // Show toast notification for new jobs
+          if (payload.eventType === 'INSERT' && payload.new.is_active) {
+            toast.success(`New job available: ${payload.new.name}`);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   const loadJobs = async () => {
     const { data, error } = await supabase
       .from('jobs')

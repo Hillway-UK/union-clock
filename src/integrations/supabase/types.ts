@@ -134,7 +134,11 @@ export type Database = {
       jobs: {
         Row: {
           address: string
+          address_line_1: string | null
+          address_line_2: string | null
+          city: string | null
           code: string
+          county: string | null
           created_at: string | null
           geofence_radius: number | null
           id: string
@@ -142,10 +146,15 @@ export type Database = {
           latitude: number
           longitude: number
           name: string
+          postcode: string | null
         }
         Insert: {
           address: string
+          address_line_1?: string | null
+          address_line_2?: string | null
+          city?: string | null
           code: string
+          county?: string | null
           created_at?: string | null
           geofence_radius?: number | null
           id?: string
@@ -153,10 +162,15 @@ export type Database = {
           latitude: number
           longitude: number
           name: string
+          postcode?: string | null
         }
         Update: {
           address?: string
+          address_line_1?: string | null
+          address_line_2?: string | null
+          city?: string | null
           code?: string
+          county?: string | null
           created_at?: string | null
           geofence_radius?: number | null
           id?: string
@@ -164,6 +178,7 @@ export type Database = {
           latitude?: number
           longitude?: number
           name?: string
+          postcode?: string | null
         }
         Relationships: []
       }
@@ -335,6 +350,10 @@ export type Database = {
       get_worker_weekly_hours: {
         Args: { week_start: string; worker_uuid: string }
         Returns: number
+      }
+      is_manager: {
+        Args: { user_email: string }
+        Returns: boolean
       }
     }
     Enums: {
