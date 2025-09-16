@@ -96,9 +96,9 @@ export default function Login() {
         }
         
         console.log('✅ Login complete, redirecting to clock screen');
-        toast.success('Welcome to Pioneer Auto Timesheets!', {
+        toast.success('Welcome to AutoTime!', {
           description: 'Login successful',
-          className: 'bg-success text-success-foreground border-l-4 border-[#702D30]'
+          className: 'bg-success text-success-foreground border-l-4 border-black'
         });
         window.location.href = '/clock';
       }
@@ -116,69 +116,64 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#EAEAEA] to-white flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-2xl border-0">
-        <CardHeader className="space-y-1 pb-6 bg-white rounded-t-lg">
-          <div className="flex justify-center mb-4">
-            <PioneerLogo className="h-14" />
-          </div>
-          <CardTitle className="text-2xl text-center font-heading font-extrabold text-[#111111]">
-            Worker Portal
-          </CardTitle>
-          <p className="text-center text-[#939393] font-body text-sm">
-            Pioneer Auto Timesheets System
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-6">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <div className="max-w-md w-full">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-black">AutoTime</h1>
+          <p className="mt-2 text-gray-600">Worker Time Management</p>
+        </div>
+        
+        <div className="bg-white rounded-2xl shadow-sm p-8">
           {error && (
             <div className="p-3 rounded-lg bg-red-50 border border-red-200">
               <p className="text-red-700 text-sm font-body">{error}</p>
             </div>
           )}
           
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-6">
             <div>
-              <Input
-                id="email"
+              <input
                 type="email"
-                placeholder="Enter your email"
+                required
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-black text-lg"
+                placeholder="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                required
-                className="h-12 font-body"
-              />
-            </div>
-            <div>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="h-12 font-body"
+                autoComplete="email"
+                autoCapitalize="none"
               />
             </div>
             
-            <label className="flex items-center space-x-2 text-sm font-body">
+            <div>
+              <input
+                type="password"
+                required
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-black text-lg"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+              />
+            </div>
+            
+            <label className="flex items-center space-x-2 text-sm">
               <Checkbox 
                 checked={rememberMe}
                 onCheckedChange={(checked) => setRememberMe(checked as boolean)}
               />
               <span>Remember me</span>
             </label>
-
-            <Button 
-              type="submit" 
+            
+            <button
+              type="submit"
+              className="w-full py-4 bg-black hover:bg-gray-800 text-white rounded-xl font-semibold text-lg transform transition-all active:scale-95"
               disabled={loading}
-              className="w-full bg-[#702D30] hover:bg-[#420808] text-white font-heading font-semibold transition-all duration-200 transform hover:scale-[1.02]"
             >
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {loading ? 'Signing in...' : 'Sign In'}
-            </Button>
+            </button>
           </form>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

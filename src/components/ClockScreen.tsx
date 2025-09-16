@@ -14,6 +14,8 @@ interface Worker {
   name: string;
   email: string;
   is_active: boolean;
+  organization_id?: string;
+  organizations?: { name: string };
 }
 
 interface Job {
@@ -623,54 +625,81 @@ export default function ClockScreen() {
   if (!worker) return null;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-safe">
+      <style>
+        {`
+          /* Disable text selection except inputs */
+          * {
+            -webkit-user-select: none;
+            user-select: none;
+          }
+          
+          input, textarea, select {
+            -webkit-user-select: text;
+            user-select: text;
+          }
+        `}
+      </style>
+      
       {/* Header */}
-      <header className="bg-gradient-to-r from-[#702D30] to-[#420808] text-white p-4 shadow-lg">
-        <div className="max-w-7xl mx-auto">
-          <PioneerLogo className="h-10 brightness-0 invert" />
-          <h1 className="font-heading font-extrabold text-xl mt-2">Auto Timesheets</h1>
-          <p className="font-body text-xs text-white/80">{worker.name}</p>
-          <div className="flex gap-2 mt-2 float-right -mt-16">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={handleRefreshJobs}
-              disabled={refreshingJobs}
-              title="Refresh job sites"
-              className="text-white hover:bg-white/20"
-            >
-              <RefreshCw className={`w-4 h-4 ${refreshingJobs ? 'animate-spin' : ''}`} />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={() => navigate('/profile')} className="text-white hover:bg-white/20">
-              <User className="w-4 h-4" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={() => navigate('/help')} className="text-white hover:bg-white/20">
-              <HelpCircle className="w-4 h-4" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={toggleNotifications}
-              className={`text-white hover:bg-white/20 ${notificationsEnabled ? 'bg-white/10' : ''}`}
-              title={notificationsEnabled ? 'Notifications Enabled' : 'Enable Notifications'}
-            >
-              {notificationsEnabled ? (
-                <Bell className="w-4 h-4" />
-              ) : (
-                <BellOff className="w-4 h-4" />
+      <header className="bg-black shadow-lg sticky top-0 z-50">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-between h-16">
+            {/* Logo and Organization */}
+            <div className="flex items-center space-x-3">
+              <h1 className="text-xl font-bold text-white">AutoTime</h1>
+              {worker.organizations?.name && (
+                <span className="text-sm text-gray-300 border-l border-gray-500 pl-3">
+                  {worker.organizations.name}
+                </span>
               )}
-            </Button>
-            <Button variant="ghost" size="icon" onClick={handleLogout} className="text-white hover:bg-white/20">
-              <LogOut className="w-4 h-4" />
-            </Button>
+            </div>
+            
+            {/* Navigation Buttons */}
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handleRefreshJobs}
+                disabled={refreshingJobs}
+                className="p-2 text-white hover:bg-gray-800 rounded-lg transition-colors"
+                title="Refresh job sites"
+              >
+                <RefreshCw className={`h-5 w-5 ${refreshingJobs ? 'animate-spin' : ''}`} />
+              </button>
+              
+              <button
+                onClick={() => navigate('/profile')}
+                className="p-2 text-white hover:bg-gray-800 rounded-lg transition-colors"
+              >
+                <User className="h-5 w-5" />
+              </button>
+              
+              <button
+                onClick={toggleNotifications}
+                className={`p-2 text-white hover:bg-gray-800 rounded-lg transition-colors ${notificationsEnabled ? 'bg-gray-800' : ''}`}
+                title={notificationsEnabled ? 'Notifications Enabled' : 'Enable Notifications'}
+              >
+                {notificationsEnabled ? (
+                  <Bell className="h-5 w-5" />
+                ) : (
+                  <BellOff className="h-5 w-5 text-gray-400" />
+                )}
+              </button>
+              
+              <button
+                onClick={handleLogout}
+                className="p-2 text-white hover:bg-gray-800 rounded-lg transition-colors"
+              >
+                <LogOut className="h-5 w-5" />
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
       <div className="p-4 space-y-6">
         {/* Current Time */}
-        <Card className="border-l-4 border-[#702D30] shadow-md hover:shadow-lg transition-shadow">
-          <CardContent className="p-4 text-center bg-[#111111] text-white">
+        <Card className="border-l-4 border-black shadow-md hover:shadow-lg transition-shadow">
+          <CardContent className="p-4 text-center bg-black text-white">
             <div className="text-2xl font-heading font-bold">
               {currentTime.toLocaleTimeString()}
             </div>
@@ -729,15 +758,14 @@ export default function ClockScreen() {
         {/* Actions */}
         <div className="space-y-4">
           {currentEntry ? (
-            <Button
+            <button
               onClick={handleClockOut}
               disabled={loading}
-              className="w-full py-6 bg-[#420808] hover:bg-[#702D30] text-white font-heading font-bold text-xl rounded-lg shadow-lg transition-all duration-200"
+              className="w-full py-8 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white text-2xl font-bold rounded-2xl shadow-lg transform transition-all duration-200 active:scale-95"
             >
-              {loading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
-              <Camera className="mr-2 h-5 w-5" />
-              {loading ? 'Processing...' : 'CLOCK OUT'}
-            </Button>
+              <LogOut className="mx-auto h-12 w-12 mb-2" />
+              {loading ? 'Processing...' : 'Clock Out'}
+            </button>
           ) : (
             <>
               <Card>
@@ -776,15 +804,14 @@ export default function ClockScreen() {
                 </CardContent>
               </Card>
               
-              <Button
+              <button
                 onClick={handleClockIn}
                 disabled={loading || !selectedJobId || !location}
-                className="w-full py-6 bg-[#702D30] hover:bg-[#420808] text-white font-heading font-bold text-xl rounded-lg shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
+                className="w-full py-8 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white text-2xl font-bold rounded-2xl shadow-lg transform transition-all duration-200 active:scale-95 disabled:active:scale-100"
               >
-                {loading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
-                <Camera className="mr-2 h-5 w-5" />
-                {loading ? 'Processing...' : 'CLOCK IN'}
-              </Button>
+                <Clock className="mx-auto h-12 w-12 mb-2" />
+                {loading ? 'Processing...' : 'Clock In'}
+              </button>
             </>
           )}
         </div>

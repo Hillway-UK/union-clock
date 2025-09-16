@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Mobile-first PWA optimizations */
+/* Mobile-first PWA optimizations for AutoTime */
 html {
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
@@ -12,6 +12,8 @@ body {
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  position: relative;
+  min-height: 100vh;
 }
 
 /* Prevent zoom on input focus on iOS */
@@ -19,13 +21,23 @@ input, select, textarea {
   font-size: 16px !important;
 }
 
-/* Touch optimizations */
+/* Touch optimizations - larger targets for mobile */
 button, .touch-target {
   min-height: 44px;
   min-width: 44px;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* PWA display optimizations */
+/* PWA display optimizations with safe areas */
+@supports (padding: max(0px)) {
+  .pb-safe {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+  .pt-safe {
+    padding-top: max(0px, env(safe-area-inset-top));
+  }
+}
+
 @media (display-mode: standalone) {
   body {
     padding-top: env(safe-area-inset-top);
@@ -40,7 +52,7 @@ All colors MUST be HSL.
 @layer base {
   :root {
     --background: 0 0% 98%;
-    --foreground: 0 0% 7%; /* Pioneer Charcoal */
+    --foreground: 0 0% 7%;
 
     --card: 0 0% 100%;
     --card-foreground: 0 0% 7%;
@@ -48,50 +60,50 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 7%;
 
-    --primary: 354 34% 31%; /* Pioneer Burgundy #702D30 */
-    --primary-foreground: 0 0% 100%;
-    --primary-dark: 11 67% 15%; /* Pioneer Deep Burgundy #420808 */
-    --pioneer-burgundy: 354 34% 31%; /* #702D30 */
-    --pioneer-deep-burgundy: 11 67% 15%; /* #420808 */
-    --pioneer-charcoal: 0 0% 7%; /* #111111 */
-    --pioneer-mid-grey: 0 0% 58%; /* #939393 */
-    --pioneer-light-grey: 0 0% 92%; /* #EAEAEA */
-    --pioneer-white: 0 0% 100%; /* #FFFFFF */
-    --pioneer-success: 146 52% 50%; /* #48BB78 */
-    --pioneer-danger: 4 90% 62%; /* #F56565 */
-    --pioneer-warning: 25 95% 57%; /* #ED8936 */
+    /* AutoTime Theme - Black/White/Grey */
+    --primary: 0 0% 0%; /* Black */
+    --primary-foreground: 0 0% 100%; /* White */
+    --primary-dark: 0 0% 20%; /* Dark Grey */
+    --autotime-black: 0 0% 0%; /* #000000 */
+    --autotime-dark-grey: 0 0% 20%; /* #333333 */
+    --autotime-mid-grey: 0 0% 50%; /* #808080 */
+    --autotime-light-grey: 0 0% 92%; /* #EAEAEA */
+    --autotime-white: 0 0% 100%; /* #FFFFFF */
+    --autotime-success: 142 76% 36%; /* Green for clock-in */
+    --autotime-danger: 0 84% 60%; /* Red for clock-out */
+    --autotime-warning: 43 96% 56%; /* Orange for warnings */
 
-    --secondary: 0 0% 92%; /* Pioneer Light Grey */
+    --secondary: 0 0% 92%;
     --secondary-foreground: 0 0% 7%;
 
     --muted: 0 0% 92%;
-    --muted-foreground: 0 0% 58%;
+    --muted-foreground: 0 0% 50%;
 
     --accent: 0 0% 92%;
     --accent-foreground: 0 0% 7%;
 
-    --destructive: 4 90% 62%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 0 0% 92%;
     --input: 0 0% 92%;
-    --ring: 354 34% 31%;
+    --ring: 0 0% 0%;
 
     --radius: 0.75rem;
 
     /* Clock app specific colors */
-    --success: 146 52% 50%;
+    --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;
-    --warning: 25 95% 57%;
+    --warning: 43 96% 56%;
     --warning-foreground: 0 0% 7%;
-    --error: 4 90% 62%;
+    --error: 0 84% 60%;
     --error-foreground: 0 0% 100%;
 
-    /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(var(--pioneer-burgundy)), hsl(var(--pioneer-deep-burgundy)));
-    --gradient-success: linear-gradient(135deg, hsl(146 52% 50%), hsl(146 52% 42%));
-    --gradient-error: linear-gradient(135deg, hsl(4 90% 62%), hsl(4 90% 52%));
-    --gradient-background: linear-gradient(135deg, hsl(var(--pioneer-charcoal)), hsl(var(--pioneer-mid-grey)));
+    /* AutoTime Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--autotime-black)), hsl(var(--autotime-dark-grey)));
+    --gradient-success: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 76% 30%));
+    --gradient-error: linear-gradient(135deg, hsl(0 84% 60%), hsl(0 84% 52%));
+    --gradient-background: linear-gradient(135deg, hsl(var(--autotime-black)), hsl(var(--autotime-mid-grey)));
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
