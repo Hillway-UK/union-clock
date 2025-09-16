@@ -22,7 +22,7 @@ export default function Timesheets() {
   const [newClockIn, setNewClockIn] = useState('');
   const [newClockOut, setNewClockOut] = useState('');
   const [expenseTypes, setExpenseTypes] = useState<any[]>([]);
-  const [selectedExpenses, setSelectedExpenses] = useState<string[]>([]);
+  const [selectedExpenses, setSelectedExpenses] = useState<{description: string, amount: number}[]>([]);
   const [existingAmendments, setExistingAmendments] = useState<any[]>([]);
   const [savingExpenses, setSavingExpenses] = useState(false);
   const [workerHourlyRate, setWorkerHourlyRate] = useState<number>(0);
@@ -54,7 +54,7 @@ export default function Timesheets() {
       // First get worker profile by email
       const { data: workerData, error: workerError } = await supabase
         .from('workers')
-        .select('id, hourly_rate, organizations(name)')
+        .select('id, hourly_rate')
         .eq('email', user.email)
         .single();
 
@@ -66,7 +66,7 @@ export default function Timesheets() {
       }
 
       setWorkerHourlyRate(workerData.hourly_rate || 0);
-      setOrganizationName(workerData.organizations?.name || '');
+      setOrganizationName('');
 
       const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
       const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
@@ -317,19 +317,16 @@ export default function Timesheets() {
 
       let successCount = 0;
 
-      for (const expenseId of selectedExpenses) {
-        const expense = expenseTypes.find(e => e.id === expenseId);
-        if (expense) {
+      for (const expense of selectedExpenses) {
+        if (expense.description && expense.amount > 0) {
           const { error } = await supabase
             .from('additional_costs')
             .insert({
-              worker_id: workerData.id,
               clock_entry_id: selectedEntry.id,
               date: format(parseISO(selectedEntry.clock_in), 'yyyy-MM-dd'),
-              description: expense.name,
+              description: expense.description,
               amount: expense.amount,
-              cost_type: 'other',
-              expense_type_id: expenseId
+              cost_type: 'expense'
             });
 
           if (!error) {
@@ -448,14 +445,34 @@ export default function Timesheets() {
   const changeWeek = (direction: 'prev' | 'next') => {
     setCurrentWeek(addDays(currentWeek, direction === 'prev' ? -7 : 7));
   };
+  // Dialog helper functions
   const openAmendmentDialog = (entry: any) => {
     setSelectedEntry(entry);
     setShowAmendmentDialog(true);
   };
+  
   const openExpenseDialog = (entry: any) => {
     setSelectedEntry(entry);
     setShowExpenseDialog(true);
   };
+
+  // Add expense functions
+  const addExpense = () => {
+    setSelectedExpenses([...selectedExpenses, { description: '', amount: 0 }]);
+  };
+
+  const updateExpense = (index: number, field: string, value: any) => {
+    const updated = [...selectedExpenses];
+    updated[index] = { ...updated[index], [field]: value };
+    setSelectedExpenses(updated);
+  };
+
+  const removeExpense = (index: number) => {
+    setSelectedExpenses(selectedExpenses.filter((_, i) => i !== index));
+  };
+
+  // Amendment submission (alias for existing function)
+  const submitAmendment = handleAmendmentSubmit;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -531,12 +548,12 @@ export default function Timesheets() {
                     {format(new Date(date), 'EEEE, MMM d')}
                   </p>
                   <p className="text-sm text-gray-600">
-                    {calculateDayHours(dayEntries).toFixed(2)} hours | £{calculateDayTotalPay(dayEntries).toFixed(2)}
+                    {calculateDayHours(dayEntries as any[]).toFixed(2)} hours | £{calculateDayTotalPay(dayEntries as any[]).toFixed(2)}
                   </p>
                 </div>
                 
                 <div className="divide-y">
-                  {dayEntries.map((entry: any) => (
+                  {(dayEntries as any[]).map((entry: any) => (
                     <div key={entry.id} className="p-4">
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
@@ -609,437 +626,123 @@ export default function Timesheets() {
         )}
       </div>
 
-        {/* Week Navigation and Manual Entry */}
-        <div className="bg-card rounded-lg shadow-sm p-4 mb-4 border border-border border-l-4 border-[#702D30]">
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => setCurrentWeek(addDays(currentWeek, -7))}
-              className="p-2 bg-[#702D30] hover:bg-[#420808] text-white rounded-lg transition-colors shadow-md"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <div className="text-center">
-              <div className="font-heading font-semibold text-foreground">
-                {format(startOfWeek(currentWeek, { weekStartsOn: 1 }), 'MMM d')} - 
-                {format(endOfWeek(currentWeek, { weekStartsOn: 1 }), ' MMM d, yyyy')}
+      {/* Amendment Dialog */}
+      <Dialog open={showAmendmentDialog} onOpenChange={setShowAmendmentDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Request Amendment</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Reason for Amendment</label>
+              <textarea
+                value={amendmentReason}
+                onChange={(e) => setAmendmentReason(e.target.value)}
+                className="w-full p-2 border rounded-lg mt-1"
+                rows={3}
+                placeholder="Please explain why you need to amend this entry..."
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">New Clock In Time</label>
+                <input
+                  type="datetime-local"
+                  value={newClockIn}
+                  onChange={(e) => setNewClockIn(e.target.value)}
+                  className="w-full p-2 border rounded-lg mt-1"
+                />
               </div>
-              <div className="text-sm font-body text-muted-foreground mt-1">
-                Total Hours: {weeklyTotal.toFixed(2)} | Total Pay: £{calculateWeeklyTotalPay().toFixed(2)}
-              </div>
-              <div className="text-xs font-body text-muted-foreground">
-                Hours: £{calculateWeeklyHoursPay().toFixed(2)} + Expenses: £{calculateWeeklyExpenses().toFixed(2)}
+              <div>
+                <label className="text-sm font-medium">New Clock Out Time</label>
+                <input
+                  type="datetime-local"
+                  value={newClockOut}
+                  onChange={(e) => setNewClockOut(e.target.value)}
+                  className="w-full p-2 border rounded-lg mt-1"
+                />
               </div>
             </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={() => setShowManualEntry(true)}
-                className="bg-[#702D30] hover:bg-[#420808] text-white"
-                size="sm"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Manual Entry
-              </Button>
+            <div className="flex gap-2 pt-4">
               <button
-                onClick={() => setCurrentWeek(addDays(currentWeek, 7))}
-                className="p-2 bg-[#702D30] hover:bg-[#420808] text-white rounded-lg transition-colors shadow-md"
+                onClick={() => setShowAmendmentDialog(false)}
+                className="flex-1 px-4 py-2 border rounded-lg"
               >
-                <ChevronRight className="w-5 h-5" />
+                Cancel
+              </button>
+              <button
+                onClick={submitAmendment}
+                className="flex-1 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800"
+              >
+                Submit Request
               </button>
             </div>
           </div>
-        </div>
+        </DialogContent>
+      </Dialog>
 
-        {/* Timesheet Entries */}
-        {loading ? (
-          <div className="bg-card rounded-lg shadow-sm p-8 text-center border border-border">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-            <p className="mt-4 text-muted-foreground">Loading timesheet...</p>
-          </div>
-        ) : Object.keys(entriesByDay).length === 0 ? (
-          <div className="bg-card rounded-lg shadow-sm p-8 text-center border border-border">
-            <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">No entries for this week</p>
-          </div>
-        ) : (
+      {/* Expense Dialog */}
+      <Dialog open={showExpenseDialog} onOpenChange={setShowExpenseDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Expenses</DialogTitle>
+          </DialogHeader>
           <div className="space-y-4">
-            {Object.entries(entriesByDay).map(([day, dayEntries]) => (
-              <div key={day} className="bg-card rounded-lg shadow-sm overflow-hidden border border-border border-l-4 border-[#702D30]">
-                <div className="bg-gradient-to-r from-[#111111] to-[#939393] text-white px-4 py-2 border-b border-border">
-                  <div className="flex justify-between items-center">
-                    <span className="font-heading font-bold text-white">{format(parseISO(day), 'EEEE, MMM d')}</span>
-                    <div className="text-right">
-                      <div className="text-sm font-body text-white/90">
-                        {calculateDayHours(dayEntries as any[]).toFixed(2)} hours | £{calculateDayTotalPay(dayEntries as any[]).toFixed(2)} total
-                      </div>
-                      <div className="text-xs font-body text-white/80">
-                        Hours: £{calculateDayHoursPay(dayEntries as any[]).toFixed(2)} + Expenses: £{calculateDayExpenses(dayEntries as any[]).toFixed(2)}
-                      </div>
-                    </div>
-                  </div>
+            {selectedExpenses.map((expense, index) => (
+              <div key={index} className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <label className="text-sm font-medium">Description</label>
+                  <input
+                    type="text"
+                    value={expense.description}
+                    onChange={(e) => updateExpense(index, 'description', e.target.value)}
+                    className="w-full p-2 border rounded-lg mt-1"
+                    placeholder="Travel, materials, etc."
+                  />
                 </div>
-                
-                 <div className="divide-y divide-border">
-                   {(dayEntries as any[]).map((entry: any) => (
-                    <div key={entry.id} className="p-4 hover:bg-muted/30 transition-colors">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                           <div className="font-body font-medium text-foreground">
-                             {entry.jobs?.name} ({entry.jobs?.code})
-                           </div>
-                            <div className="text-sm font-body text-muted-foreground mt-1">
-                              <span className="inline-flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                {format(parseISO(entry.clock_in), 'HH:mm')} - 
-                                {entry.clock_out ? format(parseISO(entry.clock_out), ' HH:mm') : ' Active'}
-                              </span>
-                              {entry.clock_out && (
-                                <span className="ml-3 font-heading font-medium">
-                                  ({calculateHours(entry.clock_in, entry.clock_out).toFixed(2)} hrs)
-                                </span>
-                              )}
-                            </div>
-                            
-                            {/* Manual entry indicator */}
-                            {entry.manual_entry && (
-                              <span className="inline-block mt-1 px-2 py-1 bg-amber-100 text-amber-800 text-xs rounded">
-                                Manual Entry
-                              </span>
-                            )}
-                            
-                            {/* Auto clock-out indicator */}
-                            {entry.auto_clocked_out && (
-                              <span className="inline-block mt-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded ml-2">
-                                Auto Clock-Out
-                              </span>
-                            )}
-                            
-                            {/* Show notes */}
-                            {entry.notes && (
-                              <p className="text-sm text-gray-500 mt-1">{entry.notes}</p>
-                            )}
-                          
-                          {/* Show expenses */}
-                          {entry.additional_costs && Array.isArray(entry.additional_costs) && entry.additional_costs.length > 0 && (
-                            <div className="mt-2 text-sm text-primary">
-                              {entry.additional_costs.length} expense(s) - 
-                              £{(entry.additional_costs as any[]).reduce((sum: number, cost: any) => 
-                                sum + parseFloat(cost.amount), 0
-                              ).toFixed(2)}
-                            </div>
-                          )}
-
-                           {/* Show amendment status */}
-                           {hasAmendment(entry.id) && (
-                             <div className="mt-2">
-                               <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full
-                                ${getAmendmentStatus(entry.id) === 'pending' ? 'bg-[#ED8936]/20 text-[#ED8936]' : 
-                                   getAmendmentStatus(entry.id) === 'approved' ? 'bg-[#48BB78]/20 text-[#48BB78]' : 
-                                   'bg-[#F56565]/20 text-[#F56565]'}`}>
-                                 <AlertCircle className="w-3 h-3" />
-                                 Amendment {getAmendmentStatus(entry.id)}
-                               </span>
-                             </div>
-                           )}
-                        </div>
-                        
-                        {entry.clock_out && (
-                          <div className="flex gap-2 ml-4">
-                             <button
-                               onClick={() => {
-                                 setSelectedEntry(entry);
-                                 setNewClockIn(entry.clock_in);
-                                 setNewClockOut(entry.clock_out);
-                                 setShowAmendmentDialog(true);
-                               }}
-                               disabled={hasAmendment(entry.id)}
-                               className="p-2 text-[#702D30] hover:bg-[#702D30]/10 font-heading font-semibold rounded-lg transition-colors disabled:opacity-50"
-                               title="Request Amendment"
-                             >
-                               <Edit2 className="w-4 h-4" />
-                             </button>
-                             <button
-                               onClick={() => {
-                                setSelectedEntry(entry);
-                                setShowExpenseDialog(true);
-                              }}
-                              className="p-2 text-[#1E3A5F] hover:bg-blue-50 rounded-lg transition-colors"
-                              title="Add Expenses"
-                            >
-                              <DollarSign className="w-4 h-4" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                <div className="w-24">
+                  <label className="text-sm font-medium">Amount</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={expense.amount}
+                    onChange={(e) => updateExpense(index, 'amount', parseFloat(e.target.value))}
+                    className="w-full p-2 border rounded-lg mt-1"
+                    placeholder="0.00"
+                  />
                 </div>
+                <button
+                  onClick={() => removeExpense(index)}
+                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                >
+                  ×
+                </button>
               </div>
             ))}
-          </div>
-        )}
-
-        {/* Amendment Dialog */}
-        {showAmendmentDialog && selectedEntry && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-card rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto border border-border">
-              <h3 className="text-lg font-semibold mb-4 text-foreground">Request Time Amendment</h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">
-                    Current Clock In
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={format(parseISO(selectedEntry.clock_in), "yyyy-MM-dd'T'HH:mm")}
-                    disabled
-                    className="w-full px-3 py-2 border border-input rounded-lg bg-muted"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">
-                    New Clock In
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={format(parseISO(newClockIn), "yyyy-MM-dd'T'HH:mm")}
-                    onChange={(e) => setNewClockIn(new Date(e.target.value).toISOString())}
-                    className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-ring"
-                  />
-                </div>
-                
-                {selectedEntry.clock_out && (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-1">
-                        Current Clock Out
-                      </label>
-                      <input
-                        type="datetime-local"
-                        value={format(parseISO(selectedEntry.clock_out), "yyyy-MM-dd'T'HH:mm")}
-                        disabled
-                        className="w-full px-3 py-2 border border-input rounded-lg bg-muted"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-1">
-                        New Clock Out
-                      </label>
-                      <input
-                        type="datetime-local"
-                        value={format(parseISO(newClockOut), "yyyy-MM-dd'T'HH:mm")}
-                        onChange={(e) => setNewClockOut(new Date(e.target.value).toISOString())}
-                        className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-ring"
-                      />
-                    </div>
-                  </>
-                )}
-                
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">
-                    Reason for Amendment <span className="text-destructive">*</span>
-                  </label>
-                  <textarea
-                    value={amendmentReason}
-                    onChange={(e) => setAmendmentReason(e.target.value)}
-                    placeholder="Please explain why this amendment is needed..."
-                    className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-ring"
-                    rows={3}
-                  />
-                </div>
-              </div>
-              
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={handleAmendmentSubmit}
-                  disabled={!amendmentReason}
-                  className="flex-1 bg-[#FF6B35] hover:bg-[#E85A2A] text-white py-3 rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 disabled:opacity-50"
-                >
-                  Submit Request
-                </button>
-                <button
-                  onClick={() => {
-                    setShowAmendmentDialog(false);
-                    setAmendmentReason('');
-                  }}
-                  className="px-6 py-3 border border-border rounded-lg hover:bg-accent transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
+            <button
+              onClick={addExpense}
+              className="w-full p-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-gray-400"
+            >
+              + Add Another Expense
+            </button>
+            <div className="flex gap-2 pt-4">
+              <button
+                onClick={() => setShowExpenseDialog(false)}
+                className="flex-1 px-4 py-2 border rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleExpenseSubmit}
+                disabled={savingExpenses}
+                className="flex-1 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-50"
+              >
+                {savingExpenses ? 'Saving...' : 'Save Expenses'}
+              </button>
             </div>
           </div>
-        )}
-
-        {/* Expense Dialog */}
-        {showExpenseDialog && selectedEntry && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-card rounded-lg p-6 max-w-md w-full max-h-[80vh] overflow-y-auto border border-border">
-              <h3 className="text-lg font-semibold mb-4 text-foreground">Add Expenses</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Add expenses for {format(parseISO(selectedEntry.clock_in), 'MMM d, yyyy')}
-              </p>
-              
-              <div className="space-y-2 mb-6">
-                {expenseTypes && expenseTypes.map && expenseTypes.map((expense: any) => (
-                  <label key={expense.id} className="flex items-center p-3 border border-border rounded-lg hover:bg-muted/50 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="mr-3 w-4 h-4"
-                      checked={selectedExpenses.includes(expense.id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedExpenses([...selectedExpenses, expense.id]);
-                        } else {
-                          setSelectedExpenses(selectedExpenses.filter(id => id !== expense.id));
-                        }
-                      }}
-                    />
-                    <div className="flex-1">
-                      <div className="font-medium text-foreground">{expense.name}</div>
-                      <div className="text-sm text-muted-foreground">£{expense.amount.toFixed(2)}</div>
-                      {expense.description && (
-                        <div className="text-xs text-muted-foreground mt-1">{expense.description}</div>
-                      )}
-                    </div>
-                  </label>
-                ))}
-              </div>
-              
-              {selectedExpenses.length > 0 && (
-                <div className="p-3 bg-primary/10 rounded-lg mb-4">
-                  <div className="flex justify-between font-medium text-foreground">
-                    <span>Total:</span>
-                    <span>£{selectedExpenses.reduce((sum: number, id: string) => {
-                      const expense = expenseTypes.find(e => e.id === id);
-                      return sum + (expense?.amount || 0);
-                    }, 0).toFixed(2)}</span>
-                  </div>
-                </div>
-              )}
-              
-              <div className="flex gap-3">
-                <button
-                  onClick={handleExpenseSubmit}
-                  disabled={savingExpenses}
-                  className={`flex-1 py-3 rounded-lg font-medium transition-colors ${
-                    savingExpenses 
-                      ? 'bg-muted cursor-not-allowed' 
-                      : 'bg-[#FF6B35] hover:bg-[#E85A2A] text-white shadow-lg hover:shadow-xl transform hover:scale-105'
-                  }`}
-                >
-                  {savingExpenses ? 'Saving...' : selectedExpenses.length > 0 ? `Add ${selectedExpenses.length} Expense(s)` : 'Cancel'}
-                </button>
-                {selectedExpenses.length > 0 && !savingExpenses && (
-                  <button
-                    onClick={() => {
-                      setShowExpenseDialog(false);
-                      setSelectedExpenses([]);
-                    }}
-                    className="px-6 py-3 border border-border rounded-lg hover:bg-accent transition-colors"
-                  >
-                    Cancel
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Manual Entry Dialog */}
-        <Dialog open={showManualEntry} onOpenChange={setShowManualEntry}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-bold">Add Manual Time Entry</DialogTitle>
-            </DialogHeader>
-            
-            <div className="space-y-4 mt-4">
-              <div>
-                <Label htmlFor="entry-date">Date</Label>
-                <Input
-                  id="entry-date"
-                  type="date"
-                  value={manualEntry.date}
-                  onChange={(e) => setManualEntry(prev => ({ ...prev, date: e.target.value }))}
-                  max={format(new Date(), 'yyyy-MM-dd')}
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="job-select">Job Site</Label>
-                <Select
-                  value={manualEntry.job_id}
-                  onValueChange={(value) => setManualEntry(prev => ({ ...prev, job_id: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a job site" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {jobs.map(job => (
-                      <SelectItem key={job.id} value={job.id}>
-                        {job.name} ({job.code})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="clock-in">Clock In Time</Label>
-                  <Input
-                    id="clock-in"
-                    type="time"
-                    value={manualEntry.clock_in_time}
-                    onChange={(e) => setManualEntry(prev => ({ ...prev, clock_in_time: e.target.value }))}
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="clock-out">Clock Out Time</Label>
-                  <Input
-                    id="clock-out"
-                    type="time"
-                    value={manualEntry.clock_out_time}
-                    onChange={(e) => setManualEntry(prev => ({ ...prev, clock_out_time: e.target.value }))}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="notes">Notes (Optional)</Label>
-                <Input
-                  id="notes"
-                  type="text"
-                  placeholder="Reason for manual entry"
-                  value={manualEntry.notes}
-                  onChange={(e) => setManualEntry(prev => ({ ...prev, notes: e.target.value }))}
-                />
-              </div>
-
-              <div className="flex gap-2 pt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowManualEntry(false)}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={submitManualEntry}
-                  className="flex-1 bg-[#702D30] hover:bg-[#420808] text-white"
-                  disabled={submittingManual}
-                >
-                  <Save className="mr-2 h-4 w-4" />
-                  {submittingManual ? 'Adding...' : 'Add Entry'}
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

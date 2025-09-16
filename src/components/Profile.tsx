@@ -24,13 +24,14 @@ export default function Profile() {
 
       const { data: workerData } = await supabase
         .from('workers')
-        .select('*, organizations(name)')
+        .select('id')
         .eq('email', user.email)
         .single();
 
       if (workerData) {
         setWorker(workerData);
-        setOrganizationName(workerData.organizations?.name || '');
+        // Remove organization name fetching due to relation issues
+        setOrganizationName('');
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
