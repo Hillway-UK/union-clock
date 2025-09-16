@@ -70,6 +70,7 @@ export default function ClockScreen() {
   const [showExpenseDialog, setShowExpenseDialog] = useState(false);
   const [completedClockEntry, setCompletedClockEntry] = useState<any>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [showNotificationToggle, setShowNotificationToggle] = useState(false);
 
   useEffect(() => {
     // Load worker data
@@ -119,25 +120,53 @@ export default function ClockScreen() {
     }
   };
 
-  const toggleNotifications = async () => {
-    if (!worker?.id) return;
-    
+  const handleNotificationToggle = async () => {
     try {
-      if (notificationsEnabled) {
-        // Disable notifications
-        await NotificationService.disableNotifications(worker.id);
+      if (!notificationsEnabled) {
+        const permission = await Notification.requestPermission();
+        
+        if (permission === 'granted') {
+          await supabase
+            .from('notification_preferences')
+            .upsert({
+              worker_id: worker?.id,
+              morning_reminder: true,
+              evening_reminder: true,
+              updated_at: new Date().toISOString()
+            });
+          
+          setNotificationsEnabled(true);
+          toast.success('Notifications enabled');
+          
+          new Notification('AutoTime', {
+            body: 'Notifications are now enabled!',
+            icon: '/icon-192.png'
+          });
+        } else {
+          toast.error('Please enable notifications in browser settings');
+        }
+      } else {
+        await supabase
+          .from('notification_preferences')
+          .upsert({
+            worker_id: worker?.id,
+            morning_reminder: false,
+            evening_reminder: false
+          });
+        
         setNotificationsEnabled(false);
         toast.success('Notifications disabled');
-      } else {
-        // Enable notifications
-        await NotificationService.enableNotifications(worker.id);
-        setNotificationsEnabled(true);
-        toast.success('Notifications enabled!');
       }
-    } catch (error: any) {
+      
+      setShowNotificationToggle(false);
+    } catch (error) {
       console.error('Notification error:', error);
-      toast.error(error.message || 'Failed to update notification settings');
+      toast.error('Failed to update notifications');
     }
+  };
+
+  const toggleNotifications = async () => {
+    setShowNotificationToggle(true);
   };
 
   // Real-time jobs listener
@@ -832,15 +861,13 @@ export default function ClockScreen() {
 
 
         {/* Timesheet Navigation */}
-        <Button
-          variant="outline"
+        <button
           onClick={() => navigate('/timesheets')}
-          className="w-full border-2 border-[#702D30] text-[#702D30] hover:bg-[#702D30] hover:text-white font-heading font-semibold shadow-md hover:shadow-lg transition-all duration-200"
-          size="lg"
+          className="w-full p-4 bg-black hover:bg-gray-800 text-white rounded-xl font-medium transition-colors flex items-center justify-center space-x-2"
         >
-          <Clock className="mr-2 h-5 w-5" />
-          View Timesheets
-        </Button>
+          <FileText className="h-5 w-5" />
+          <span>View Timesheets</span>
+        </button>
         
         {/* Expense Dialog */}
         {showExpenseDialog && (
@@ -930,6 +957,58 @@ export default function ClockScreen() {
                   </Button>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Notification Toggle Modal */}
+        {showNotificationToggle && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl p-6 max-w-sm w-full">
+              <h3 className="text-lg font-semibold mb-4">Notification Settings</h3>
+              
+              {Notification.permission === 'denied' ? (
+                <div className="space-y-4">
+                  <p className="text-gray-600">
+                    Notifications are blocked by your browser.
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    To enable: Go to browser settings → Site settings → Notifications → Allow AutoTime
+                  </p>
+                  <button
+                    onClick={() => setShowNotificationToggle(false)}
+                    className="w-full py-3 bg-black text-white rounded-xl"
+                  >
+                    OK
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <p className="text-gray-600">
+                    {notificationsEnabled 
+                      ? 'Notifications are currently enabled'
+                      : 'Enable notifications to receive clock in/out reminders'}
+                  </p>
+                  <div className="flex space-x-3">
+                    <button
+                      onClick={handleNotificationToggle}
+                      className={`flex-1 py-3 rounded-xl font-medium ${
+                        notificationsEnabled 
+                          ? 'bg-red-500 text-white' 
+                          : 'bg-green-500 text-white'
+                      }`}
+                    >
+                      {notificationsEnabled ? 'Disable' : 'Enable'}
+                    </button>
+                    <button
+                      onClick={() => setShowNotificationToggle(false)}
+                      className="flex-1 py-3 bg-gray-200 rounded-xl font-medium"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

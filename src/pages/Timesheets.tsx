@@ -26,6 +26,7 @@ export default function Timesheets() {
   const [existingAmendments, setExistingAmendments] = useState<any[]>([]);
   const [savingExpenses, setSavingExpenses] = useState(false);
   const [workerHourlyRate, setWorkerHourlyRate] = useState<number>(0);
+  const [organizationName, setOrganizationName] = useState<string>('');
   
   // Manual entry state
   const [showManualEntry, setShowManualEntry] = useState(false);
@@ -53,7 +54,7 @@ export default function Timesheets() {
       // First get worker profile by email
       const { data: workerData, error: workerError } = await supabase
         .from('workers')
-        .select('id, hourly_rate')
+        .select('id, hourly_rate, organizations(name)')
         .eq('email', user.email)
         .single();
 
@@ -65,6 +66,7 @@ export default function Timesheets() {
       }
 
       setWorkerHourlyRate(workerData.hourly_rate || 0);
+      setOrganizationName(workerData.organizations?.name || '');
 
       const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
       const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
@@ -435,25 +437,177 @@ export default function Timesheets() {
     }
   };
 
+  const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
+  const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
+
+  const groupEntriesByDay = () => entriesByDay;
+  const calculateWeeklyHours = () => weeklyTotal.toFixed(2);
+  const getAmendmentForEntry = (entryId: string) => existingAmendments.find(a => a.clock_entry_id === entryId);
+  const calculateEntryHours = (entry: any) => calculateHours(entry.clock_in, entry.clock_out).toFixed(2);
+  const calculateEntryPay = (entry: any) => (calculateHours(entry.clock_in, entry.clock_out) * workerHourlyRate).toFixed(2);
+  const changeWeek = (direction: 'prev' | 'next') => {
+    setCurrentWeek(addDays(currentWeek, direction === 'prev' ? -7 : 7));
+  };
+  const openAmendmentDialog = (entry: any) => {
+    setSelectedEntry(entry);
+    setShowAmendmentDialog(true);
+  };
+  const openExpenseDialog = (entry: any) => {
+    setSelectedEntry(entry);
+    setShowExpenseDialog(true);
+  };
+
   return (
-    <div className="min-h-screen bg-background p-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <header className="bg-gradient-to-r from-[#702D30] to-[#420808] text-white p-4 shadow-lg rounded-lg mb-4">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex items-center space-x-2">
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-black shadow-lg sticky top-0 z-50">
+        <div className="px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
               <button
-                onClick={() => navigate('/')}
-                className="mr-4 p-2 hover:bg-white/20 rounded-lg transition-colors duration-200"
-                title="Back to Clock Screen"
+                onClick={() => navigate('/clock')}
+                className="p-2 text-white hover:bg-gray-800 rounded-lg transition-colors"
               >
-                <ArrowLeft className="w-5 h-5 text-white" />
+                <ArrowLeft className="h-5 w-5" />
               </button>
-              <Construction className="w-6 h-6" />
-              <span className="font-heading font-bold text-xl">Pioneer Auto Timesheets</span>
+              <div>
+                <h1 className="text-xl font-bold text-white">AutoTime</h1>
+                <p className="text-sm text-gray-300">Timesheets</p>
+              </div>
+              {organizationName && (
+                <span className="text-sm text-gray-300 border-l border-gray-500 pl-3">
+                  {organizationName}
+                </span>
+              )}
             </div>
           </div>
-        </header>
+        </div>
+      </div>
+
+      {/* Week Navigation */}
+      <div className="bg-white border-b">
+        <div className="px-4 py-3 flex items-center justify-between">
+          <button
+            onClick={() => changeWeek('prev')}
+            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          
+          <div className="text-center">
+            <p className="font-semibold text-gray-900">
+              {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
+            </p>
+            <p className="text-sm text-gray-500">
+              Total: {calculateWeeklyHours()} hours | £{calculateWeeklyTotalPay().toFixed(2)}
+            </p>
+          </div>
+          
+          <button
+            onClick={() => changeWeek('next')}
+            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Timesheet Entries */}
+      <div className="p-4">
+        {loading ? (
+          <div className="animate-pulse">Loading timesheets...</div>
+        ) : entries.length === 0 ? (
+          <div className="bg-white rounded-xl p-8 text-center">
+            <Clock className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+            <p className="text-gray-600">No timesheet entries for this week</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Group entries by day */}
+            {Object.entries(groupEntriesByDay()).map(([date, dayEntries]) => (
+              <div key={date} className="bg-white rounded-xl shadow-sm">
+                <div className="px-4 py-3 border-b bg-gray-50 rounded-t-xl">
+                  <p className="font-semibold text-gray-900">
+                    {format(new Date(date), 'EEEE, MMM d')}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {calculateDayHours(dayEntries).toFixed(2)} hours | £{calculateDayTotalPay(dayEntries).toFixed(2)}
+                  </p>
+                </div>
+                
+                <div className="divide-y">
+                  {dayEntries.map((entry: any) => (
+                    <div key={entry.id} className="p-4">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">
+                            {entry.jobs?.name || 'Unknown Job'}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {format(new Date(entry.clock_in), 'h:mm a')} - 
+                            {entry.clock_out 
+                              ? format(new Date(entry.clock_out), 'h:mm a')
+                              : 'In Progress'}
+                          </p>
+                          {entry.additional_costs?.length > 0 && (
+                            <p className="text-sm text-gray-500 mt-1">
+                              Expenses: £{entry.additional_costs.reduce((sum: number, cost: any) => 
+                                sum + (cost.amount || 0), 0).toFixed(2)}
+                            </p>
+                          )}
+                        </div>
+                        
+                        <div className="text-right">
+                          <p className="font-medium text-gray-900">
+                            {calculateEntryHours(entry)} hrs
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            £{calculateEntryPay(entry)}
+                          </p>
+                          
+                          {/* Amendment Status Badge */}
+                          {getAmendmentForEntry(entry.id) && (
+                            <span className={`inline-block mt-2 px-2 py-1 text-xs rounded-full ${
+                              getAmendmentForEntry(entry.id)?.status === 'approved'
+                                ? 'bg-green-100 text-green-800'
+                                : getAmendmentForEntry(entry.id)?.status === 'rejected'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {getAmendmentForEntry(entry.id)?.status}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Action Buttons */}
+                      <div className="mt-3 flex space-x-2">
+                        {!getAmendmentForEntry(entry.id) && entry.clock_out && (
+                          <button
+                            onClick={() => openAmendmentDialog(entry)}
+                            className="text-sm px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700"
+                          >
+                            Request Amendment
+                          </button>
+                        )}
+                        
+                        {!entry.additional_costs?.length && entry.clock_out && (
+                          <button
+                            onClick={() => openExpenseDialog(entry)}
+                            className="text-sm px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700"
+                          >
+                            Add Expense
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
         {/* Week Navigation and Manual Entry */}
         <div className="bg-card rounded-lg shadow-sm p-4 mb-4 border border-border border-l-4 border-[#702D30]">
