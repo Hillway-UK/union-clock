@@ -18,19 +18,26 @@ export default function Profile() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user?.email) {
-        navigate('/login');
+        console.log('No user email found');
+        setLoading(false);
         return;
       }
 
-      const { data: workerData } = await supabase
+      const { data: workerData, error } = await supabase
         .from('workers')
-        .select('id')
+        .select('*')
         .eq('email', user.email)
         .single();
 
+      if (error) {
+        console.error('Error fetching worker:', error);
+        toast.error('Failed to load worker profile');
+        setLoading(false);
+        return;
+      }
+
       if (workerData) {
         setWorker(workerData);
-        // Remove organization name fetching due to relation issues
         setOrganizationName('');
       }
     } catch (error) {
