@@ -52,6 +52,9 @@ export default function Login() {
       if (user) {
         console.log('✅ Authentication successful for user:', user.email);
         
+        // Add a small delay to let session fully stabilize after password reset
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         // Verify session is established
         const { data: { session } } = await supabase.auth.getSession();
         console.log('🔧 Session check:', session ? 'Active' : 'None');

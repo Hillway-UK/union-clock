@@ -32,11 +32,6 @@ export default function ResetPassword() {
   useEffect(() => {
     const verifyResetLink = async () => {
       try {
-        // Debug: Log the full URL and parameters
-        console.log('🔍 Full URL:', window.location.href);
-        console.log('🔍 Hash:', window.location.hash);
-        console.log('🔍 Search:', window.location.search);
-        
         // Parse URL hash parameters (access_token, refresh_token, type)
         const hash = window.location.hash.slice(1);
         const hashParams = new URLSearchParams(hash);
@@ -44,24 +39,11 @@ export default function ResetPassword() {
         const hashRefreshToken = hashParams.get('refresh_token');
         const hashType = hashParams.get('type');
         
-        console.log('🔍 Hash params:', {
-          access_token: hashAccessToken,
-          refresh_token: hashRefreshToken,
-          type: hashType
-        });
-        
         // Also check query parameters (some environments deliver tokens in query)
         const queryAccessToken = searchParams.get('access_token');
         const queryRefreshToken = searchParams.get('refresh_token');
         const queryType = searchParams.get('type');
         const code = searchParams.get('code');
-        
-        console.log('🔍 Query params:', {
-          access_token: queryAccessToken,
-          refresh_token: queryRefreshToken,
-          type: queryType,
-          code: code
-        });
 
         // Supabase may return error details in either hash or query
         const errorDescription =
@@ -72,8 +54,6 @@ export default function ResetPassword() {
           hashParams.get('error') ||
           hashParams.get('error_code');
 
-        console.log('🔍 Error in URL:', errorDescription);
-
         if (errorDescription) {
           throw new Error(errorDescription);
         }
@@ -81,16 +61,8 @@ export default function ResetPassword() {
         const accessToken = hashAccessToken || queryAccessToken;
         const refreshToken = hashRefreshToken || queryRefreshToken;
         const type = hashType || queryType;
-        
-        console.log('🔍 Final tokens:', {
-          accessToken: accessToken ? 'present' : 'missing',
-          refreshToken: refreshToken ? 'present' : 'missing', 
-          type,
-          code: code ? 'present' : 'missing'
-        });
 
         if (type === 'recovery' && accessToken && refreshToken) {
-          console.log('🔐 Establishing session from URL tokens');
           const { error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
@@ -100,7 +72,6 @@ export default function ResetPassword() {
           window.history.replaceState(null, '', window.location.pathname);
           setCanReset(true);
         } else if (code) {
-          console.log('🔐 Exchanging authorization code for session');
           const { error } = await supabase.auth.exchangeCodeForSession(code);
           if (error) throw error;
           window.history.replaceState(null, '', window.location.pathname);
@@ -108,8 +79,6 @@ export default function ResetPassword() {
         } else {
           throw new Error('Invalid or expired reset link');
         }
-
-        console.log('✅ Password reset link verified');
       } catch (error) {
         console.error('❌ Reset link verification failed:', error);
         const description =

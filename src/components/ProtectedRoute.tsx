@@ -13,15 +13,41 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   useEffect(() => {
     let mounted = true;
+    let stabilizeTimer: NodeJS.Timeout;
     
-    // Set up auth state listener
+    // Set up auth state listener with stabilization delay
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log('Auth state change:', event, session?.user?.email);
+        
         if (mounted) {
-          setSession(session);
-          setUser(session?.user ?? null);
-          setLoading(false);
+          // Clear any existing timer
+          if (stabilizeTimer) {
+            clearTimeout(stabilizeTimer);
+          }
+          
+          // For sign out events, update immediately
+          if (event === 'SIGNED_OUT') {
+            setSession(null);
+            setUser(null);
+            setLoading(false);
+            return;
+          }
+          
+          // For sign in events, add small delay to let session stabilize
+          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+            stabilizeTimer = setTimeout(() => {
+              if (mounted) {
+                setSession(session);
+                setUser(session?.user ?? null);
+                setLoading(false);
+              }
+            }, 200);
+          } else {
+            setSession(session);
+            setUser(session?.user ?? null);
+            setLoading(false);
+          }
         }
       }
     );
@@ -38,6 +64,9 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
 
     return () => {
       mounted = false;
+      if (stabilizeTimer) {
+        clearTimeout(stabilizeTimer);
+      }
       subscription.unsubscribe();
     };
   }, []);
