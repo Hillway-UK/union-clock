@@ -35,37 +35,48 @@ export default function ResetPassword() {
         // Parse URL hash parameters (access_token, refresh_token, type)
         const hash = window.location.hash.slice(1);
         const hashParams = new URLSearchParams(hash);
-        const accessToken = hashParams.get('access_token');
-        const refreshToken = hashParams.get('refresh_token');
-        const type = hashParams.get('type');
+        const hashAccessToken = hashParams.get('access_token');
+        const hashRefreshToken = hashParams.get('refresh_token');
+        const hashType = hashParams.get('type');
 
-        // Fallback: Check for code in query parameters
+        // Also check query parameters (some environments deliver tokens in query)
+        const queryAccessToken = searchParams.get('access_token');
+        const queryRefreshToken = searchParams.get('refresh_token');
+        const queryType = searchParams.get('type');
         const code = searchParams.get('code');
 
+        // Supabase may return error details in either hash or query
+        const errorDescription =
+          searchParams.get('error_description') ||
+          searchParams.get('error') ||
+          searchParams.get('error_code') ||
+          hashParams.get('error_description') ||
+          hashParams.get('error') ||
+          hashParams.get('error_code');
+
+        if (errorDescription) {
+          throw new Error(errorDescription);
+        }
+
+        const accessToken = hashAccessToken || queryAccessToken;
+        const refreshToken = hashRefreshToken || queryRefreshToken;
+        const type = hashType || queryType;
+
         if (type === 'recovery' && accessToken && refreshToken) {
-          console.log('🔐 Setting session with tokens from hash');
-          
+          console.log('🔐 Establishing session from URL tokens');
           const { error } = await supabase.auth.setSession({
             access_token: accessToken,
-            refresh_token: refreshToken
+            refresh_token: refreshToken,
           });
-
-          if (error) {
-            throw error;
-          }
-
-          // Clear the hash from URL for security
+          if (error) throw error;
+          // Clear URL params for security
           window.history.replaceState(null, '', window.location.pathname);
           setCanReset(true);
         } else if (code) {
-          console.log('🔐 Exchanging code for session');
-          
+          console.log('🔐 Exchanging authorization code for session');
           const { error } = await supabase.auth.exchangeCodeForSession(code);
-
-          if (error) {
-            throw error;
-          }
-
+          if (error) throw error;
+          window.history.replaceState(null, '', window.location.pathname);
           setCanReset(true);
         } else {
           throw new Error('Invalid or expired reset link');
@@ -74,13 +85,13 @@ export default function ResetPassword() {
         console.log('✅ Password reset link verified');
       } catch (error) {
         console.error('❌ Reset link verification failed:', error);
-        
+        const description =
+          error instanceof Error ? error.message : 'This password reset link is invalid or has expired.';
         toast.error('Invalid Reset Link', {
-          description: 'This password reset link is invalid or has expired.',
-          className: 'bg-error text-error-foreground border-error'
+          description,
+          className: 'bg-error text-error-foreground border-error',
         });
-
-        setError('This reset link is invalid or has expired. Please request a new one.');
+        setError(description);
       } finally {
         setIsVerifying(false);
       }
