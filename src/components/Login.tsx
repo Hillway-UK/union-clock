@@ -4,9 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Loader2, AlertCircle, Mail } from 'lucide-react';
 import { toast } from 'sonner';
-import { PioneerLogo } from '@/components/PioneerLogo';
+import { z } from 'zod';
+
+const emailSchema = z.object({
+  email: z.string().email('Please enter a valid email address')
+});
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -14,6 +19,12 @@ export default function Login() {
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  // Forgot password state
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
+  const [forgotPasswordError, setForgotPasswordError] = useState('');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,6 +126,53 @@ export default function Login() {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotPasswordLoading(true);
+    setForgotPasswordError('');
+
+    try {
+      // Validate email
+      const validation = emailSchema.safeParse({ email: forgotPasswordEmail });
+      if (!validation.success) {
+        setForgotPasswordError(validation.error.issues[0].message);
+        return;
+      }
+
+      const { error } = await supabase.auth.resetPasswordForEmail(forgotPasswordEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) {
+        console.error('❌ Password reset error:', error.message);
+        setForgotPasswordError(error.message);
+        toast.error('Reset Failed', {
+          description: error.message,
+          className: 'bg-error text-error-foreground border-error'
+        });
+        return;
+      }
+
+      toast.success('Reset Email Sent', {
+        description: 'Check your email for password reset instructions',
+        className: 'bg-success text-success-foreground border-l-4 border-black'
+      });
+      
+      setShowForgotPassword(false);
+      setForgotPasswordEmail('');
+    } catch (error) {
+      console.error('💥 Unexpected forgot password error:', error);
+      const errorMsg = error instanceof Error ? error.message : 'An unexpected error occurred';
+      setForgotPasswordError(errorMsg);
+      toast.error('Error', {
+        description: errorMsg,
+        className: 'bg-error text-error-foreground border-error'
+      });
+    } finally {
+      setForgotPasswordLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="max-w-md w-full">
@@ -172,6 +230,75 @@ export default function Login() {
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
+          
+          <div className="mt-6 text-center">
+            <Dialog open={showForgotPassword} onOpenChange={setShowForgotPassword}>
+              <DialogTrigger asChild>
+                <button
+                  type="button"
+                  className="text-sm text-gray-600 hover:text-black transition-colors"
+                >
+                  Forgot your password?
+                </button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Mail className="w-5 h-5" />
+                    Reset Password
+                  </DialogTitle>
+                </DialogHeader>
+                
+                {forgotPasswordError && (
+                  <div className="p-3 rounded-lg bg-red-50 border border-red-200">
+                    <p className="text-red-700 text-sm">{forgotPasswordError}</p>
+                  </div>
+                )}
+                
+                <form onSubmit={handleForgotPassword} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-black"
+                      placeholder="Enter your email address"
+                      value={forgotPasswordEmail}
+                      onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                      autoComplete="email"
+                    />
+                  </div>
+                  
+                  <div className="flex gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => setShowForgotPassword(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      className="flex-1"
+                      disabled={forgotPasswordLoading}
+                    >
+                      {forgotPasswordLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        'Send Reset Email'
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
       </div>
     </div>
