@@ -32,12 +32,15 @@ export default function Login() {
     setError('');
     
     try {
+      console.log('🔐 Attempting login for:', email);
+      
       const { data: { user }, error } = await supabase.auth.signInWithPassword({
         email,
         password
       });
       
       if (error) {
+        console.error('❌ Login error:', error.message);
         setError(error.message);
         toast.error('Login failed', {
           description: error.message,
@@ -47,13 +50,17 @@ export default function Login() {
       }
 
       if (user) {
+        console.log('✅ Authentication successful for user:', user.email);
+        
         // Add a small delay to let session fully stabilize after password reset
         await new Promise(resolve => setTimeout(resolve, 500));
         
         // Verify session is established
         const { data: { session } } = await supabase.auth.getSession();
+        console.log('🔧 Session check:', session ? 'Active' : 'None');
         
         // Check if user exists in workers table with better error handling
+        console.log('🔍 Looking up worker record...');
         const { data: worker, error: workerError } = await supabase
           .from('workers')
           .select('*')
@@ -61,10 +68,11 @@ export default function Login() {
           .maybeSingle();
           
         if (workerError) {
-          const errorMsg = 'Unable to verify worker status. Please contact support.';
+          console.error('❌ Worker lookup error:', workerError.message);
+          const errorMsg = `Database error: ${workerError.message}`;
           setError(errorMsg);
           toast.error('Database Error', {
-            description: errorMsg,
+            description: 'Unable to verify worker status. Please contact support.',
             className: 'bg-error text-error-foreground border-error'
           });
           await supabase.auth.signOut();
@@ -72,6 +80,7 @@ export default function Login() {
         }
 
         if (!worker) {
+          console.warn('⚠️ No worker record found for:', user.email);
           const errorMsg = 'Worker account not found. Please contact your administrator.';
           setError(errorMsg);
           toast.error('Access Denied', {
@@ -81,6 +90,8 @@ export default function Login() {
           await supabase.auth.signOut();
           return;
         }
+
+        console.log('👤 Worker found:', worker.name, 'Active:', worker.is_active);
 
         if (!worker.is_active) {
           const errorMsg = 'Worker account is inactive. Please contact your administrator.';
@@ -98,6 +109,7 @@ export default function Login() {
           localStorage.setItem('rememberLogin', 'true');
         }
         
+        console.log('✅ Login complete, redirecting to clock screen');
         toast.success('Welcome to AutoTime!', {
           description: 'Login successful',
           className: 'bg-success text-success-foreground border-l-4 border-black'
@@ -105,6 +117,7 @@ export default function Login() {
         window.location.href = '/clock';
       }
     } catch (error) {
+      console.error('💥 Unexpected login error:', error);
       const errorMsg = error instanceof Error ? error.message : 'An unexpected error occurred';
       setError(errorMsg);
       toast.error('Error', {
@@ -134,6 +147,7 @@ export default function Login() {
       });
 
       if (error) {
+        console.error('❌ Password reset error:', error.message);
         setForgotPasswordError(error.message);
         toast.error('Reset Failed', {
           description: error.message,
@@ -150,6 +164,7 @@ export default function Login() {
       setShowForgotPassword(false);
       setForgotPasswordEmail('');
     } catch (error) {
+      console.error('💥 Unexpected forgot password error:', error);
       const errorMsg = error instanceof Error ? error.message : 'An unexpected error occurred';
       setForgotPasswordError(errorMsg);
       toast.error('Error', {

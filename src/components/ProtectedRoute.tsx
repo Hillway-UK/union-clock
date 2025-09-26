@@ -18,6 +18,8 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     // Set up auth state listener with stabilization delay
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('Auth state change:', event, session?.user?.email);
+        
         if (mounted) {
           // Clear any existing timer
           if (stabilizeTimer) {
@@ -52,6 +54,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session check:', session?.user?.email);
       if (mounted) {
         setSession(session);
         setUser(session?.user ?? null);
@@ -70,6 +73,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   useEffect(() => {
     if (!loading && !user) {
+      console.log('No user found, redirecting to login');
       localStorage.removeItem('worker');
       window.location.href = '/login';
     }

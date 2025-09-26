@@ -80,7 +80,9 @@ export default function ResetPassword() {
           throw new Error('Invalid or expired reset link');
         }
       } catch (error) {
-        const description = error instanceof Error ? error.message : 'This password reset link is invalid or has expired.';
+        console.error('❌ Reset link verification failed:', error);
+        const description =
+          error instanceof Error ? error.message : 'This password reset link is invalid or has expired.';
         toast.error('Invalid Reset Link', {
           description,
           className: 'bg-error text-error-foreground border-error',
@@ -118,6 +120,7 @@ export default function ResetPassword() {
       });
 
       if (error) {
+        console.error('❌ Password update error:', error.message);
         setError(error.message);
         toast.error('Reset Failed', {
           description: error.message,
@@ -135,6 +138,7 @@ export default function ResetPassword() {
       await supabase.auth.signOut();
       navigate('/login');
     } catch (error) {
+      console.error('💥 Unexpected password reset error:', error);
       const errorMsg = error instanceof Error ? error.message : 'An unexpected error occurred';
       setError(errorMsg);
       toast.error('Error', {

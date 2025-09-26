@@ -22,8 +22,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    // In production, only log minimal error info without exposing stack traces
-    // In development, you can add more detailed logging if needed
+    console.error('Error boundary caught an error:', error, errorInfo);
   }
 
   handleReload = () => {

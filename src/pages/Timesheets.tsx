@@ -46,6 +46,7 @@ export default function Timesheets() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user?.email) {
+        console.log('No authenticated user found');
         setLoading(false);
         return;
       }
@@ -58,6 +59,7 @@ export default function Timesheets() {
         .single();
 
       if (workerError || !workerData) {
+        console.log('Worker not found for email:', user.email);
         toast.error('Worker profile not found');
         setLoading(false);
         return;
@@ -68,6 +70,8 @@ export default function Timesheets() {
 
       const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
       const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
+
+      console.log('Fetching entries for worker:', workerData.id, 'week:', weekStart, 'to', weekEnd);
 
       const { data, error } = await supabase
         .from('clock_entries')
@@ -82,11 +86,14 @@ export default function Timesheets() {
         .order('clock_in', { ascending: false });
 
       if (error) {
+        console.error('Error fetching entries:', error);
         toast.error('Failed to load timesheet entries');
       } else {
+        console.log('Found entries:', data?.length || 0);
         setEntries(data || []);
       }
     } catch (error) {
+      console.error('Error in fetchEntries:', error);
       toast.error('Failed to load timesheet data');
     }
     setLoading(false);
@@ -116,7 +123,7 @@ export default function Timesheets() {
         setExistingAmendments(data);
       }
     } catch (error) {
-      // Failed to load amendments - continue silently
+      console.error('Error fetching amendments:', error);
     }
   };
 
@@ -148,7 +155,7 @@ export default function Timesheets() {
       if (error) throw error;
       setWorker(data);
     } catch (error) {
-      // Failed to load worker - continue silently
+      console.error('Error fetching worker:', error);
     }
   };
 
@@ -164,7 +171,7 @@ export default function Timesheets() {
       if (error) throw error;
       setJobs(data || []);
     } catch (error) {
-      // Failed to load jobs - continue silently
+      console.error('Error fetching jobs:', error);
     }
   };
 
@@ -277,6 +284,7 @@ export default function Timesheets() {
         fetchAmendments();
       }
     } catch (error) {
+      console.error('Error submitting amendment:', error);
       toast.error('Failed to submit amendment');
     }
   };
@@ -333,6 +341,7 @@ export default function Timesheets() {
       setSelectedExpenses([]);
       fetchEntries();
     } catch (error) {
+      console.error('Error adding expenses:', error);
       toast.error('Failed to add expenses');
       setSavingExpenses(false);
     }
@@ -418,6 +427,7 @@ export default function Timesheets() {
       });
       fetchEntries(); // Refresh the timesheet
     } catch (error: any) {
+      console.error('Error adding manual entry:', error);
       toast.error(error.message || 'Failed to add manual entry');
     } finally {
       setSubmittingManual(false);
