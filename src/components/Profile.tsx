@@ -18,7 +18,6 @@ export default function Profile() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user?.email) {
-        console.log('No user email found');
         setLoading(false);
         return;
       }
@@ -30,7 +29,6 @@ export default function Profile() {
         .single();
 
       if (error) {
-        console.error('Error fetching worker:', error);
         toast.error('Failed to load worker profile');
         setLoading(false);
         return;
@@ -41,7 +39,6 @@ export default function Profile() {
         setOrganizationName('');
       }
     } catch (error) {
-      console.error('Error fetching profile:', error);
       toast.error('Failed to load profile');
     } finally {
       setLoading(false);

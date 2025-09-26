@@ -115,7 +115,7 @@ export default function ClockScreen() {
       const enabled = await NotificationService.checkNotificationStatus(worker.id);
       setNotificationsEnabled(enabled);
     } catch (error) {
-      console.error('Error checking notification status:', error);
+      // Notification setup failed - continue silently
     }
   };
 
@@ -159,7 +159,6 @@ export default function ClockScreen() {
       
       setShowNotificationToggle(false);
     } catch (error) {
-      console.error('Notification error:', error);
       toast.error('Failed to update notifications');
     }
   };
@@ -180,7 +179,6 @@ export default function ClockScreen() {
           table: 'jobs'
         },
         (payload) => {
-          console.log('Job change detected:', payload);
           // Reload jobs when any change occurs
           loadJobs();
           
@@ -206,7 +204,6 @@ export default function ClockScreen() {
       
     if (error) {
       toast.error('Failed to load jobs');
-      console.error('Job loading error:', error);
       return;
     }
     
@@ -227,7 +224,6 @@ export default function ClockScreen() {
 
   const fetchExpenseTypes = async () => {
     setLoadingExpenses(true);
-    console.log('🔧 DEBUG: Fetching expense types...');
     try {
       const { data, error } = await supabase
         .from('expense_types')
@@ -236,19 +232,14 @@ export default function ClockScreen() {
         .order('name');
       
       if (error) {
-        console.error('❌ ERROR fetching expense types:', error);
         return;
       }
       
       if (data) {
-        console.log('✅ SUCCESS: Loaded expense types:', data.length, 'items');
-        console.log('Expense types data:', data);
         setExpenseTypes(data);
-      } else {
-        console.log('⚠️  No expense types data returned');
       }
     } catch (err) {
-      console.error('❌ EXCEPTION in fetchExpenseTypes:', err);
+      // Error fetching expense types - continue silently
     } finally {
       setLoadingExpenses(false);
     }
@@ -269,14 +260,12 @@ export default function ClockScreen() {
       }
       return data || [];
     } catch (error) {
-      console.error('Error fetching shift expenses:', error);
       return [];
     }
   };
 
   const checkCurrentStatus = async () => {
     const workerData = JSON.parse(localStorage.getItem('worker') || '{}');
-    console.log('🔧 DEBUG: Checking current status for worker:', workerData.id);
     
     const { data } = await supabase
       .from('clock_entries')
@@ -285,15 +274,11 @@ export default function ClockScreen() {
       .is('clock_out', null)
       .single();
     
-    console.log('🔧 DEBUG: Current entry data:', data);
     setCurrentEntry(data);
     
     // Fetch expenses for current shift if clocked in
     if (data) {
-      console.log('✅ Worker is clocked in, fetching expenses for entry:', data.id);
       fetchCurrentShiftExpenses(data.id);
-    } else {
-      console.log('⚠️  Worker is not clocked in');
     }
   };
 
@@ -313,7 +298,6 @@ export default function ClockScreen() {
       },
       (error) => {
         toast.error('Location access is required to clock in');
-        console.error('Location error:', error);
       },
       { 
         enableHighAccuracy: true,
@@ -423,7 +407,6 @@ export default function ClockScreen() {
       .upload(fileName, blob);
     
     if (error) {
-      console.error('Upload error:', error);
       throw error;
     }
     
@@ -490,7 +473,6 @@ export default function ClockScreen() {
       setCurrentEntry(data);
       toast.success('Clocked in successfully!');
     } catch (error) {
-      console.error('Clock in error:', error);
       toast.error('Failed to clock in');
     }
     
@@ -542,17 +524,16 @@ export default function ClockScreen() {
       setCurrentEntry(null);
       setCurrentShiftExpenses([]);
       
-      // Show expense dialog if expense types available
-      if (expenseTypes && expenseTypes.length > 0) {
-        setShowExpenseDialog(true);
-      } else {
-        // No expense types available, show standard success message
-        toast.success(`Clocked out successfully! Worked ${hours.toFixed(2)} hours`);
+        // Show expense dialog if expense types available
+        if (expenseTypes && expenseTypes.length > 0) {
+          setShowExpenseDialog(true);
+        } else {
+          // No expense types available, show standard success message
+          toast.success(`Clocked out successfully! Worked ${hours.toFixed(2)} hours`);
+        }
+      } catch (error) {
+        toast.error('Failed to clock out');
       }
-    } catch (error) {
-      console.error('Clock out error:', error);
-      toast.error('Failed to clock out');
-    }
     
     setLoading(false);
   };
@@ -621,7 +602,6 @@ export default function ClockScreen() {
               expenseCount++;
               totalAmount += expense.amount;
             } else {
-              console.error('Error adding expense:', error);
               toast.error(`Failed to add ${expense.name}`);
             }
           }
@@ -643,7 +623,6 @@ export default function ClockScreen() {
       setSelectedExpenses([]);
       setCompletedClockEntry(null);
     } catch (error) {
-      console.error('Error submitting expenses:', error);
       toast.error('Failed to save expenses');
     } finally {
       setSubmittingExpenses(false);

@@ -4,7 +4,6 @@ export class NotificationService {
   static async requestPermission(): Promise<boolean> {
     // Check if browser supports notifications
     if (!('Notification' in window)) {
-      console.log('This browser does not support notifications');
       return false;
     }
 
@@ -19,7 +18,6 @@ export class NotificationService {
         const permission = await Notification.requestPermission();
         return permission === 'granted';
       } catch (error) {
-        console.error('Error requesting notification permission:', error);
         return false;
       }
     }
@@ -59,7 +57,6 @@ export class NotificationService {
 
       return true;
     } catch (error) {
-      console.error('Failed to enable notifications:', error);
       throw error;
     }
   }
@@ -74,7 +71,6 @@ export class NotificationService {
       if (error) throw error;
       return true;
     } catch (error) {
-      console.error('Failed to disable notifications:', error);
       throw error;
     }
   }
@@ -96,7 +92,6 @@ export class NotificationService {
 
         return notification;
       } catch (error) {
-        console.error('Error showing notification:', error);
         // Fallback to alert on iOS PWA if notification fails
         if ((window.navigator as any).standalone) {
           alert(`${title}\n\n${body}`);
@@ -122,7 +117,6 @@ export class NotificationService {
         
       return !!data;
     } catch (error) {
-      console.error('Error checking notification status:', error);
       return false;
     }
   }
@@ -180,7 +174,7 @@ export class NotificationService {
         }
       }
     } catch (error) {
-      console.error('Error in checkAndNotify:', error);
+      // Notification check failed - continue silently
     }
   }
 }
