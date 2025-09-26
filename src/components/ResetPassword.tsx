@@ -3,8 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
-import { Eye, EyeOff, Lock, Loader2, AlertCircle, Mail, RefreshCw } from 'lucide-react';
+import { Eye, EyeOff, Lock, Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
@@ -18,8 +17,6 @@ const passwordSchema = z.object({
   path: ["confirmPassword"]
 });
 
-type VerificationMethod = 'token-based' | 'otp-with-email' | 'pkce-fallback' | 'failed';
-
 export default function ResetPassword() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -29,27 +26,8 @@ export default function ResetPassword() {
   const [error, setError] = useState('');
   const [isVerifying, setIsVerifying] = useState(true);
   const [canReset, setCanReset] = useState(false);
-  
-  // Hybrid verification states
-  const [verificationMethod, setVerificationMethod] = useState<VerificationMethod>('failed');
-  const [showEmailInput, setShowEmailInput] = useState(false);
-  const [showOtpInput, setShowOtpInput] = useState(false);
-  const [otp, setOtp] = useState('');
-  const [email, setEmail] = useState('');
-  const [showResendOption, setShowResendOption] = useState(false);
-  const [resendLoading, setResendLoading] = useState(false);
-  const [resendCooldown, setResendCooldown] = useState(0);
-  
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-
-  // Cooldown effect
-  useEffect(() => {
-    if (resendCooldown > 0) {
-      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [resendCooldown]);
 
   useEffect(() => {
     const verifyResetLink = async () => {
@@ -66,7 +44,6 @@ export default function ResetPassword() {
         const queryRefreshToken = searchParams.get('refresh_token');
         const queryType = searchParams.get('type');
         const code = searchParams.get('code');
-        const emailParam = searchParams.get('email');
 
         // Supabase may return error details in either hash or query
         const errorDescription =
@@ -85,52 +62,20 @@ export default function ResetPassword() {
         const refreshToken = hashRefreshToken || queryRefreshToken;
         const type = hashType || queryType;
 
-        // Hybrid verification method detection
         if (type === 'recovery' && accessToken && refreshToken) {
-          // Method 1: Token-based (fastest, most secure)
-          console.log('🔐 Using token-based verification');
-          setVerificationMethod('token-based');
           const { error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
           });
           if (error) throw error;
+          // Clear URL params for security
           window.history.replaceState(null, '', window.location.pathname);
           setCanReset(true);
-        } else if (code && emailParam) {
-          // Method 2: OTP with email (cross-device compatible)
-          console.log('📱 Using OTP with email verification');
-          setVerificationMethod('otp-with-email');
-          setEmail(emailParam);
-          await handleOtpVerification(code, emailParam);
-        } else if (code && !emailParam) {
-          // Method 3: PKCE fallback (try PKCE first, then ask for email)
-          console.log('🔄 Trying PKCE verification');
-          setVerificationMethod('pkce-fallback');
-          try {
-            const { error } = await supabase.auth.exchangeCodeForSession(code);
-            if (error) {
-              if (error.message.includes('code verifier') || error.message.includes('PKCE')) {
-                console.log('📧 PKCE failed, falling back to email input');
-                setShowEmailInput(true);
-                setShowOtpInput(true);
-                setOtp(code);
-              } else if (error.status === 403) {
-                setShowResendOption(true);
-                throw new Error('Your reset link has expired. Please request a new one.');
-              } else {
-                throw error;
-              }
-            } else {
-              window.history.replaceState(null, '', window.location.pathname);
-              setCanReset(true);
-            }
-          } catch (pkceError) {
-            if (pkceError instanceof Error && pkceError.message.includes('expired')) {
-              setShowResendOption(true);
-            }
-            throw pkceError;
-          }
+        } else if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+          window.history.replaceState(null, '', window.location.pathname);
+          setCanReset(true);
         } else {
           throw new Error('Invalid or expired reset link');
         }
@@ -143,7 +88,6 @@ export default function ResetPassword() {
           className: 'bg-error text-error-foreground border-error',
         });
         setError(description);
-        setVerificationMethod('failed');
       } finally {
         setIsVerifying(false);
       }
@@ -151,31 +95,6 @@ export default function ResetPassword() {
 
     verifyResetLink();
   }, [searchParams]);
-
-  const handleOtpVerification = async (otpCode: string, userEmail: string) => {
-    try {
-      console.log('🔢 Verifying OTP for recovery');
-      const { error } = await supabase.auth.verifyOtp({
-        email: userEmail,
-        token: otpCode,
-        type: 'recovery'
-      });
-      
-      if (error) {
-        if (error.status === 403) {
-          setShowResendOption(true);
-          throw new Error('Your reset code has expired. Please request a new one.');
-        }
-        throw error;
-      }
-      
-      setCanReset(true);
-      window.history.replaceState(null, '', window.location.pathname);
-    } catch (error) {
-      console.error('❌ OTP verification failed:', error);
-      throw error;
-    }
-  };
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -231,67 +150,6 @@ export default function ResetPassword() {
     }
   };
 
-  const handleEmailOtpSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim() || !otp.trim()) {
-      setError('Please provide both email and verification code');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    
-    try {
-      await handleOtpVerification(otp, email.trim());
-    } catch (error) {
-      const description = error instanceof Error ? error.message : 'Verification failed';
-      setError(description);
-      toast.error('Verification Failed', {
-        description,
-        className: 'bg-error text-error-foreground border-error'
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResendResetLink = async () => {
-    if (resendCooldown > 0) return;
-    
-    setResendLoading(true);
-    setError('');
-    
-    try {
-      const resetEmail = email || '';
-      if (!resetEmail) {
-        throw new Error('Email address is required');
-      }
-
-      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
-
-      if (error) throw error;
-
-      toast.success('New Reset Link Sent', {
-        description: 'Check your email for a new password reset link',
-        className: 'bg-success text-success-foreground border-l-4 border-black'
-      });
-      
-      setShowResendOption(false);
-      setResendCooldown(60); // 60 second cooldown
-    } catch (error) {
-      const description = error instanceof Error ? error.message : 'Failed to send reset link';
-      setError(description);
-      toast.error('Resend Failed', {
-        description,
-        className: 'bg-error text-error-foreground border-error'
-      });
-    } finally {
-      setResendLoading(false);
-    }
-  };
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="max-w-md w-full">
@@ -305,140 +163,19 @@ export default function ResetPassword() {
             <div className="text-center py-8">
               <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-gray-500" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Verifying Reset Link</h3>
-              <p className="text-gray-600">
-                {verificationMethod === 'token-based' && 'Verifying security tokens...'}
-                {verificationMethod === 'otp-with-email' && 'Verifying with email code...'}
-                {verificationMethod === 'pkce-fallback' && 'Trying secure verification...'}
-                {verificationMethod === 'failed' && 'Please wait while we verify your password reset link...'}
-              </p>
-            </div>
-          ) : showEmailInput && showOtpInput ? (
-            <div className="space-y-6">
-              <div className="text-center">
-                <Mail className="w-12 h-12 text-blue-500 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Email Verification Required</h3>
-                <p className="text-gray-600 mb-6">
-                  We need your email address to verify this reset code for cross-device compatibility.
-                </p>
-              </div>
-
-              {error && (
-                <div className="p-3 rounded-lg bg-red-50 border border-red-200">
-                  <p className="text-red-700 text-sm">{error}</p>
-                </div>
-              )}
-
-              <form onSubmit={handleEmailOtpSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email Address
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-black"
-                    placeholder="Enter your email address"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    autoComplete="email"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Verification Code
-                  </label>
-                  <div className="flex justify-center">
-                    <InputOTP
-                      value={otp}
-                      onChange={setOtp}
-                      maxLength={6}
-                    >
-                      <InputOTPGroup>
-                        <InputOTPSlot index={0} />
-                        <InputOTPSlot index={1} />
-                        <InputOTPSlot index={2} />
-                        <InputOTPSlot index={3} />
-                        <InputOTPSlot index={4} />
-                        <InputOTPSlot index={5} />
-                      </InputOTPGroup>
-                    </InputOTP>
-                  </div>
-                </div>
-
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={loading || !email.trim() || otp.length < 6}
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Verifying...
-                    </>
-                  ) : (
-                    'Verify & Continue'
-                  )}
-                </Button>
-              </form>
-
-              <div className="text-center">
-                <button
-                  type="button"
-                  className="text-sm text-gray-600 hover:text-black transition-colors"
-                  onClick={() => navigate('/login')}
-                >
-                  Back to Login
-                </button>
-              </div>
+              <p className="text-gray-600">Please wait while we verify your password reset link...</p>
             </div>
           ) : !canReset ? (
             <div className="text-center py-8">
               <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-red-900 mb-2">Invalid Reset Link</h3>
               <p className="text-red-700 mb-6">{error}</p>
-              
-              {showResendOption ? (
-                <div className="space-y-4">
-                  <Button
-                    onClick={handleResendResetLink}
-                    disabled={resendLoading || resendCooldown > 0}
-                    className="w-full"
-                  >
-                    {resendLoading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Sending...
-                      </>
-                    ) : resendCooldown > 0 ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        Resend in {resendCooldown}s
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        Send New Reset Link
-                      </>
-                    )}
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    onClick={() => navigate('/login')}
-                    className="w-full"
-                  >
-                    Back to Login
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  onClick={() => navigate('/login')}
-                  className="w-full"
-                >
-                  Request New Reset Link
-                </Button>
-              )}
+              <Button
+                onClick={() => navigate('/login')}
+                className="w-full"
+              >
+                Request New Reset Link
+              </Button>
             </div>
           ) : (
             <>

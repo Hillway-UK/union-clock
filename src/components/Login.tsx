@@ -142,23 +142,13 @@ export default function Login() {
         return;
       }
 
-      // Enhanced reset request with better error handling
       const { error } = await supabase.auth.resetPasswordForEmail(forgotPasswordEmail, {
-        redirectTo: `${window.location.origin}/reset-password?email=${encodeURIComponent(forgotPasswordEmail)}`,
+        redirectTo: `${window.location.origin}/reset-password`,
       });
 
       if (error) {
         console.error('❌ Password reset error:', error.message);
-        
-        // Handle specific error cases
-        if (error.message.includes('rate limit')) {
-          setForgotPasswordError('Too many reset requests. Please wait before trying again.');
-        } else if (error.message.includes('not found') || error.message.includes('invalid')) {
-          setForgotPasswordError('Email address not found. Please check and try again.');
-        } else {
-          setForgotPasswordError(error.message);
-        }
-        
+        setForgotPasswordError(error.message);
         toast.error('Reset Failed', {
           description: error.message,
           className: 'bg-error text-error-foreground border-error'
@@ -167,7 +157,7 @@ export default function Login() {
       }
 
       toast.success('Reset Email Sent', {
-        description: 'Check your email for password reset instructions. The link works on any device.',
+        description: 'Check your email for password reset instructions',
         className: 'bg-success text-success-foreground border-l-4 border-black'
       });
       
@@ -184,14 +174,6 @@ export default function Login() {
     } finally {
       setForgotPasswordLoading(false);
     }
-  };
-
-  // Export for reuse in ResetPassword component
-  const sendResetEmail = async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password?email=${encodeURIComponent(email)}`,
-    });
-    return { error };
   };
 
   return (
