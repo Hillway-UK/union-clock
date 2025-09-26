@@ -8,6 +8,7 @@ import ClockScreen from "./components/ClockScreen";
 import Profile from "./components/Profile";
 import InstallGuide from "./components/InstallGuide";
 import ProtectedRoute from "./components/ProtectedRoute";
+import Home from "./components/Home";
 import Timesheets from "./pages/Timesheets";
 import NotFound from "./pages/NotFound";
 
@@ -20,16 +21,9 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
+          <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/reset-password" element={<ResetPassword />} />
-          <Route 
-            path="/" 
-            element={
-              <ProtectedRoute>
-                <ClockScreen />
-              </ProtectedRoute>
-            } 
-          />
           <Route 
             path="/clock" 
             element={
