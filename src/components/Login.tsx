@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +21,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const navigate = useNavigate();
   
   // Forgot password state
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -32,7 +34,7 @@ export default function Login() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         // User is already logged in, redirect to clock
-        window.location.href = '/clock';
+        navigate('/clock');
       } else {
         setCheckingAuth(false);
       }
@@ -41,7 +43,7 @@ export default function Login() {
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
-        window.location.href = '/clock';
+        navigate('/clock');
       }
     });
 

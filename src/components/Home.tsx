@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import Login from './Login';
 import { User } from '@supabase/supabase-js';
@@ -6,6 +7,7 @@ import { User } from '@supabase/supabase-js';
 export default function Home() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Check current session
@@ -15,7 +17,7 @@ export default function Home() {
       
       // If authenticated, redirect to clock
       if (session?.user) {
-        window.location.href = '/clock';
+        navigate('/clock');
       }
     });
 
@@ -25,7 +27,7 @@ export default function Home() {
       
       // If user just signed in, redirect to clock
       if (event === 'SIGNED_IN' && session?.user) {
-        window.location.href = '/clock';
+        navigate('/clock');
       }
     });
 
