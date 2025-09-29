@@ -72,40 +72,63 @@ export default function ClockScreen() {
   const [showNotificationToggle, setShowNotificationToggle] = useState(false);
 
   useEffect(() => {
-    // Load worker data
-    const workerData = localStorage.getItem('worker');
-    if (!workerData) {
-      navigate('/login');
-      return;
-    }
-    setWorker(JSON.parse(workerData));
-    
-    // Load initial data
-    loadJobs();
-    checkCurrentStatus();
-    requestLocation();
-    fetchExpenseTypes();
-    setupNotifications();
-
-    // Update time every second
-    const timeInterval = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-
-    // Set up notification checking
-    let notificationInterval: NodeJS.Timeout;
-    if (worker?.id) {
-      notificationInterval = setInterval(() => {
-        if (notificationsEnabled) {
-          NotificationService.checkAndNotify(worker.id);
+    const init = async () => {
+      // Ensure worker is available in localStorage; if not, hydrate from Supabase
+      const cached = localStorage.getItem('worker');
+      if (!cached) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.email) {
+          const { data: workerRow, error } = await supabase
+            .from('workers')
+            .select('*')
+            .eq('email', user.email)
+            .maybeSingle();
+          
+          if (error || !workerRow) {
+            // No worker profile; sign out to avoid redirect loops
+            await supabase.auth.signOut();
+            navigate('/login', { replace: true });
+            return;
+          }
+          localStorage.setItem('worker', JSON.stringify(workerRow));
+          setWorker(workerRow);
+        } else {
+          navigate('/login', { replace: true });
+          return;
         }
-      }, 60000); // Check every minute
-    }
+      } else {
+        setWorker(JSON.parse(cached));
+      }
 
-    return () => {
-      clearInterval(timeInterval);
-      if (notificationInterval) clearInterval(notificationInterval);
+      // Load initial data
+      loadJobs();
+      checkCurrentStatus();
+      requestLocation();
+      fetchExpenseTypes();
+      setupNotifications();
+
+      // Update time every second
+      const timeInterval = setInterval(() => {
+        setCurrentTime(new Date());
+      }, 1000);
+
+      // Set up notification checking
+      let notificationInterval: NodeJS.Timeout;
+      if (worker?.id) {
+        notificationInterval = setInterval(() => {
+          if (notificationsEnabled) {
+            NotificationService.checkAndNotify(worker.id);
+          }
+        }, 60000); // Check every minute
+      }
+
+      return () => {
+        clearInterval(timeInterval);
+        if (notificationInterval) clearInterval(notificationInterval);
+      };
     };
+
+    init();
   }, []);
 
   const setupNotifications = async () => {

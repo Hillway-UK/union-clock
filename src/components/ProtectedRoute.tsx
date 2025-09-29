@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 
@@ -10,6 +11,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     let mounted = true;
@@ -18,7 +20,6 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     // Set up auth state listener with stabilization delay
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('Auth state change:', event, session?.user?.email);
         
         if (mounted) {
           // Clear any existing timer
@@ -54,7 +55,6 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session check:', session?.user?.email);
       if (mounted) {
         setSession(session);
         setUser(session?.user ?? null);
@@ -73,9 +73,8 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   useEffect(() => {
     if (!loading && !user) {
-      console.log('No user found, redirecting to login');
       localStorage.removeItem('worker');
-      window.location.href = '/login';
+      navigate('/login', { replace: true });
     }
   }, [user, loading]);
 
