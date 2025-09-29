@@ -8,6 +8,7 @@ import { Camera, MapPin, Clock, LogOut, Loader2, User, HelpCircle, X, Check, Wal
 import { toast } from 'sonner';
 import { NotificationService } from '@/services/notifications';
 import AutoTimeLogo from '@/components/AutoTimeLogo';
+import { NotificationBell } from '@/components/NotificationBell';
 
 interface Worker {
   id: string;
@@ -727,6 +728,8 @@ export default function ClockScreen() {
               >
                 <User className="h-5 w-5" />
               </button>
+              
+              <NotificationBell workerId={worker.id} />
               
               <button
                 onClick={toggleNotifications}
