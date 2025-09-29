@@ -29,26 +29,34 @@ export default function Login() {
   const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
   const [forgotPasswordError, setForgotPasswordError] = useState('');
 
-  // Check if user is already authenticated
+  // Check if user is already authenticated (only when component mounts)
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        // User is already logged in, redirect to clock
-        navigate('/clock');
-      } else {
-        setCheckingAuth(false);
-      }
-    });
+    let mounted = true;
 
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        navigate('/clock');
+    const checkAuthStatus = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (mounted) {
+          if (session?.user) {
+            // User is already logged in, redirect to clock
+            navigate('/clock', { replace: true });
+          } else {
+            setCheckingAuth(false);
+          }
+        }
+      } catch (error) {
+        if (mounted) {
+          setCheckingAuth(false);
+        }
       }
-    });
+    };
 
-    return () => subscription.unsubscribe();
-  }, []);
+    checkAuthStatus();
+
+    return () => {
+      mounted = false;
+    };
+  }, [navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,7 +146,7 @@ export default function Login() {
           description: 'Login successful',
           className: 'bg-success text-success-foreground border-l-4 border-black'
         });
-        window.location.href = '/clock';
+        navigate('/clock', { replace: true });
       }
     } catch (error) {
       console.error('💥 Unexpected login error:', error);

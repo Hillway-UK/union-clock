@@ -10,29 +10,47 @@ export default function Home() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check current session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-      
-      // If authenticated, redirect to clock
-      if (session?.user) {
-        navigate('/clock');
-      }
-    });
+    let mounted = true;
 
-    // Listen for auth changes
+    // Check current session once
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (mounted) {
+          setUser(session?.user ?? null);
+          setLoading(false);
+          
+          // If authenticated, redirect to clock
+          if (session?.user) {
+            navigate('/clock', { replace: true });
+          }
+        }
+      } catch (error) {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user ?? null);
-      
-      // If user just signed in, redirect to clock
-      if (event === 'SIGNED_IN' && session?.user) {
-        navigate('/clock');
+      if (mounted) {
+        setUser(session?.user ?? null);
+        
+        // Only redirect on sign in, not on initial session
+        if (event === 'SIGNED_IN' && session?.user) {
+          navigate('/clock', { replace: true });
+        }
       }
     });
 
-    return () => subscription.unsubscribe();
-  }, []);
+    checkSession();
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [navigate]);
 
   if (loading) {
     return (
