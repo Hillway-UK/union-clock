@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Loader2, AlertCircle, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import AutoTimeLogo from '@/components/AutoTimeLogo';
 
 const emailSchema = z.object({
   email: z.string().email('Please enter a valid email address')
@@ -224,8 +225,7 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-black">AutoTime</h1>
-          <p className="mt-2 text-gray-600">Worker Time Management</p>
+          <AutoTimeLogo size="large" className="justify-center" />
         </div>
         
         <div className="bg-white rounded-2xl shadow-sm p-8">

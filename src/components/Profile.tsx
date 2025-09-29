@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { User, ArrowLeft, Clock, FileText } from 'lucide-react';
 import { toast } from 'sonner';
+import AutoTimeLogo from '@/components/AutoTimeLogo';
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -61,12 +62,15 @@ export default function Profile() {
         <div className="px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <h1 className="text-xl font-bold text-white">AutoTime</h1>
-              {organizationName && (
-                <span className="text-sm text-gray-300 border-l border-gray-500 pl-3">
-                  {organizationName}
-                </span>
-              )}
+              <AutoTimeLogo size="small" showText={false} />
+              <div>
+                <h1 className="text-xl font-bold text-white">AutoTime</h1>
+                {organizationName && (
+                  <span className="text-sm text-gray-300">
+                    {organizationName}
+                  </span>
+                )}
+              </div>
             </div>
             <button
               onClick={() => navigate('/clock')}

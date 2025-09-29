@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Camera, MapPin, Clock, LogOut, Loader2, User, HelpCircle, X, Check, Wallet, RefreshCw, Construction, Bell, BellOff, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { NotificationService } from '@/services/notifications';
+import AutoTimeLogo from '@/components/AutoTimeLogo';
 
 interface Worker {
   id: string;
@@ -698,12 +699,15 @@ export default function ClockScreen() {
           <div className="flex items-center justify-between h-16">
             {/* Logo and Organization */}
             <div className="flex items-center space-x-3">
-              <h1 className="text-xl font-bold text-white">AutoTime</h1>
-              {worker.organizations?.name && (
-                <span className="text-sm text-gray-300 border-l border-gray-500 pl-3">
-                  {worker.organizations.name}
-                </span>
-              )}
+              <AutoTimeLogo size="small" showText={false} />
+              <div>
+                <h1 className="text-xl font-bold text-white">AutoTime</h1>
+                {worker.organizations?.name && (
+                  <span className="text-sm text-gray-300">
+                    {worker.organizations.name}
+                  </span>
+                )}
+              </div>
             </div>
             
             {/* Navigation Buttons */}
