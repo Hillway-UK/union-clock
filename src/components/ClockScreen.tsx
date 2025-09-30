@@ -4,10 +4,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Camera, MapPin, Clock, LogOut, Loader2, User, HelpCircle, X, Check, Wallet, RefreshCw, Construction, Bell, BellOff, FileText } from 'lucide-react';
+import { Camera, MapPin, Clock, LogOut, Loader2, User, HelpCircle, X, Check, Wallet, RefreshCw, Construction, Bell, BellOff, FileText, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { NotificationService } from '@/services/notifications';
 import AutoTimeLogo from '@/components/AutoTimeLogo';
+import PWAInstallDialog from '@/components/PWAInstallDialog';
 
 interface Worker {
   id: string;
@@ -71,6 +72,7 @@ export default function ClockScreen() {
   const [completedClockEntry, setCompletedClockEntry] = useState<any>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [showNotificationToggle, setShowNotificationToggle] = useState(false);
+  const [showPWADialog, setShowPWADialog] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -107,6 +109,13 @@ export default function ClockScreen() {
       requestLocation();
       fetchExpenseTypes();
       setupNotifications();
+      
+      // Check if this is first visit and show PWA install dialog
+      const hasSeenPWADialog = localStorage.getItem('hasSeenPWADialog');
+      if (!hasSeenPWADialog) {
+        setShowPWADialog(true);
+        localStorage.setItem('hasSeenPWADialog', 'true');
+      }
 
       // Update time every second
       const timeInterval = setInterval(() => {
@@ -741,6 +750,14 @@ export default function ClockScreen() {
               </button>
               
               <button
+                onClick={() => setShowPWADialog(true)}
+                className="p-2 text-white hover:bg-gray-800 rounded-lg transition-colors"
+                title="App Installation Guide"
+              >
+                <Info className="h-5 w-5" />
+              </button>
+              
+              <button
                 onClick={handleLogout}
                 className="p-2 text-white hover:bg-gray-800 rounded-lg transition-colors"
               >
@@ -1039,6 +1056,9 @@ export default function ClockScreen() {
           </div>
         )}
       </div>
+
+      {/* PWA Install Dialog */}
+      <PWAInstallDialog open={showPWADialog} onOpenChange={setShowPWADialog} />
 
     </div>
   );
