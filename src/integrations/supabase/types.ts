@@ -160,54 +160,6 @@ export type Database = {
           },
         ]
       }
-      demo_requests: {
-        Row: {
-          admin_users: number | null
-          company: string | null
-          contacted_at: string | null
-          created_at: string
-          email: string
-          id: string
-          message: string | null
-          name: string
-          notes: string | null
-          phone: string | null
-          status: string | null
-          updated_at: string
-          worker_count: number | null
-        }
-        Insert: {
-          admin_users?: number | null
-          company?: string | null
-          contacted_at?: string | null
-          created_at?: string
-          email: string
-          id?: string
-          message?: string | null
-          name: string
-          notes?: string | null
-          phone?: string | null
-          status?: string | null
-          updated_at?: string
-          worker_count?: number | null
-        }
-        Update: {
-          admin_users?: number | null
-          company?: string | null
-          contacted_at?: string | null
-          created_at?: string
-          email?: string
-          id?: string
-          message?: string | null
-          name?: string
-          notes?: string | null
-          phone?: string | null
-          status?: string | null
-          updated_at?: string
-          worker_count?: number | null
-        }
-        Relationships: []
-      }
       expense_types: {
         Row: {
           amount: number
@@ -256,7 +208,6 @@ export type Database = {
           latitude: number
           longitude: number
           name: string
-          organization_id: string | null
           postcode: string | null
         }
         Insert: {
@@ -273,7 +224,6 @@ export type Database = {
           latitude: number
           longitude: number
           name: string
-          organization_id?: string | null
           postcode?: string | null
         }
         Update: {
@@ -290,18 +240,9 @@ export type Database = {
           latitude?: number
           longitude?: number
           name?: string
-          organization_id?: string | null
           postcode?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "jobs_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       managers: {
         Row: {
@@ -309,9 +250,7 @@ export type Database = {
           email: string
           id: string
           is_admin: boolean | null
-          is_super: boolean | null
           name: string
-          organization_id: string | null
           pin: string | null
         }
         Insert: {
@@ -319,9 +258,7 @@ export type Database = {
           email: string
           id?: string
           is_admin?: boolean | null
-          is_super?: boolean | null
           name: string
-          organization_id?: string | null
           pin?: string | null
         }
         Update: {
@@ -329,27 +266,10 @@ export type Database = {
           email?: string
           id?: string
           is_admin?: boolean | null
-          is_super?: boolean | null
           name?: string
-          organization_id?: string | null
           pin?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "fk_managers_organization"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "managers_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       notification_preferences: {
         Row: {
@@ -394,214 +314,6 @@ export type Database = {
             columns: ["worker_id"]
             isOneToOne: false
             referencedRelation: "workers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      notifications: {
-        Row: {
-          body: string
-          created_at: string
-          delivered_at: string | null
-          failed_reason: string | null
-          id: string
-          read_at: string | null
-          retry_count: number | null
-          title: string
-          type: string
-          worker_id: string
-        }
-        Insert: {
-          body: string
-          created_at?: string
-          delivered_at?: string | null
-          failed_reason?: string | null
-          id?: string
-          read_at?: string | null
-          retry_count?: number | null
-          title: string
-          type?: string
-          worker_id: string
-        }
-        Update: {
-          body?: string
-          created_at?: string
-          delivered_at?: string | null
-          failed_reason?: string | null
-          id?: string
-          read_at?: string | null
-          retry_count?: number | null
-          title?: string
-          type?: string
-          worker_id?: string
-        }
-        Relationships: []
-      }
-      organizations: {
-        Row: {
-          address: string | null
-          company_number: string | null
-          created_at: string | null
-          email: string | null
-          id: string
-          max_managers: number | null
-          max_workers: number | null
-          name: string
-          phone: string | null
-          stripe_customer_id: string | null
-          stripe_subscription_id: string | null
-          subscription_end_date: string | null
-          subscription_start_date: string | null
-          subscription_status: string | null
-          trial_ends_at: string | null
-          updated_at: string | null
-          vat_number: string | null
-        }
-        Insert: {
-          address?: string | null
-          company_number?: string | null
-          created_at?: string | null
-          email?: string | null
-          id?: string
-          max_managers?: number | null
-          max_workers?: number | null
-          name: string
-          phone?: string | null
-          stripe_customer_id?: string | null
-          stripe_subscription_id?: string | null
-          subscription_end_date?: string | null
-          subscription_start_date?: string | null
-          subscription_status?: string | null
-          trial_ends_at?: string | null
-          updated_at?: string | null
-          vat_number?: string | null
-        }
-        Update: {
-          address?: string | null
-          company_number?: string | null
-          created_at?: string | null
-          email?: string | null
-          id?: string
-          max_managers?: number | null
-          max_workers?: number | null
-          name?: string
-          phone?: string | null
-          stripe_customer_id?: string | null
-          stripe_subscription_id?: string | null
-          subscription_end_date?: string | null
-          subscription_start_date?: string | null
-          subscription_status?: string | null
-          trial_ends_at?: string | null
-          updated_at?: string | null
-          vat_number?: string | null
-        }
-        Relationships: []
-      }
-      postcodes: {
-        Row: {
-          country: string | null
-          county: string | null
-          created_at: string
-          id: string
-          latitude: number
-          longitude: number
-          postcode: string
-          town: string | null
-        }
-        Insert: {
-          country?: string | null
-          county?: string | null
-          created_at?: string
-          id?: string
-          latitude: number
-          longitude: number
-          postcode: string
-          town?: string | null
-        }
-        Update: {
-          country?: string | null
-          county?: string | null
-          created_at?: string
-          id?: string
-          latitude?: number
-          longitude?: number
-          postcode?: string
-          town?: string | null
-        }
-        Relationships: []
-      }
-      subscription_usage: {
-        Row: {
-          active_managers: number | null
-          active_workers: number | null
-          billed: boolean | null
-          created_at: string | null
-          id: string
-          month: string
-          organization_id: string | null
-          total_cost: number | null
-        }
-        Insert: {
-          active_managers?: number | null
-          active_workers?: number | null
-          billed?: boolean | null
-          created_at?: string | null
-          id?: string
-          month: string
-          organization_id?: string | null
-          total_cost?: number | null
-        }
-        Update: {
-          active_managers?: number | null
-          active_workers?: number | null
-          billed?: boolean | null
-          created_at?: string | null
-          id?: string
-          month?: string
-          organization_id?: string | null
-          total_cost?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "subscription_usage_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      super_admins: {
-        Row: {
-          created_at: string | null
-          email: string
-          id: string
-          is_owner: boolean | null
-          name: string
-          organization_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          email: string
-          id?: string
-          is_owner?: boolean | null
-          name: string
-          organization_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          email?: string
-          id?: string
-          is_owner?: boolean | null
-          name?: string
-          organization_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "super_admins_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -688,7 +400,6 @@ export type Database = {
           id: string
           is_active: boolean | null
           name: string
-          organization_id: string
           phone: string | null
           photo_url: string | null
           updated_at: string | null
@@ -704,7 +415,6 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name: string
-          organization_id: string
           phone?: string | null
           photo_url?: string | null
           updated_at?: string | null
@@ -720,27 +430,11 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name?: string
-          organization_id?: string
           phone?: string | null
           photo_url?: string | null
           updated_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "fk_workers_organization"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "workers_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Views: {
@@ -764,14 +458,6 @@ export type Database = {
           worker_name: string
         }[]
       }
-      get_current_user_permissions: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          is_manager: boolean
-          is_super_admin: boolean
-          organization_id: string
-        }[]
-      }
       get_recent_activity: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -787,31 +473,12 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: number
       }
-      get_user_organization_id: {
-        Args: { user_email: string }
-        Returns: string
-      }
-      get_user_role_and_org: {
-        Args: { user_email: string }
-        Returns: {
-          organization_id: string
-          role: string
-        }[]
-      }
       get_worker_weekly_hours: {
         Args: { week_start: string; worker_uuid: string }
         Returns: number
       }
       is_manager: {
         Args: { user_email: string }
-        Returns: boolean
-      }
-      is_super_admin: {
-        Args: { user_email: string }
-        Returns: boolean
-      }
-      is_super_admin_of_org: {
-        Args: { org_id: string }
         Returns: boolean
       }
     }

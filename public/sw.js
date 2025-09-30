@@ -28,7 +28,7 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Enhanced notification handling
+// Simplified notification handling - just for basic functionality
 self.addEventListener('notificationclick', (event) => {
   console.log('Notification click received:', event);
   
@@ -36,72 +36,6 @@ self.addEventListener('notificationclick', (event) => {
   
   // Open the app when notification is clicked
   event.waitUntil(
-    clients.matchAll().then(clientList => {
-      // Check if there's already a window open
-      for (let i = 0; i < clientList.length; i++) {
-        const client = clientList[i];
-        if (client.url.includes('/clock') && 'focus' in client) {
-          return client.focus();
-        }
-      }
-      // If no window is open, open new one
-      if (clients.openWindow) {
-        return clients.openWindow('/clock');
-      }
-    })
+    clients.openWindow('/')
   );
-});
-
-// Handle push events for background notifications
-self.addEventListener('push', (event) => {
-  console.log('Push notification received:', event);
-  
-  let notificationData = {
-    title: 'Pioneer Clock',
-    body: 'You have a new notification',
-    icon: '/icon-192.png',
-    badge: '/icon-192.png',
-    tag: 'pioneer-reminder'
-  };
-
-  if (event.data) {
-    try {
-      notificationData = { ...notificationData, ...event.data.json() };
-    } catch (e) {
-      notificationData.body = event.data.text();
-    }
-  }
-
-  event.waitUntil(
-    self.registration.showNotification(notificationData.title, {
-      body: notificationData.body,
-      icon: notificationData.icon,
-      badge: notificationData.badge,
-      tag: notificationData.tag,
-      requireInteraction: true,
-      actions: [
-        {
-          action: 'view',
-          title: 'View App'
-        },
-        {
-          action: 'dismiss',
-          title: 'Dismiss'
-        }
-      ]
-    })
-  );
-});
-
-// Handle notification action clicks
-self.addEventListener('notificationaction', (event) => {
-  console.log('Notification action clicked:', event.action);
-  
-  event.notification.close();
-  
-  if (event.action === 'view') {
-    event.waitUntil(
-      clients.openWindow('/clock')
-    );
-  }
 });

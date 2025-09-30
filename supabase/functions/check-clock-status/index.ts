@@ -92,7 +92,7 @@ serve(async (req) => {
           "You're still clocked in. Don't forget to clock out!"
         );
         notificationsSent++;
-        console.log(`Sent evening reminder to worker: ${(entry.workers as any).name}`);
+        console.log(`Sent evening reminder to worker: ${entry.workers.name}`);
       }
     }
 
@@ -138,7 +138,7 @@ serve(async (req) => {
           'You were automatically clocked out after 12 hours.'
         );
         notificationsSent++;
-        console.log(`Auto clocked-out worker: ${(entry.workers as any).name}`);
+        console.log(`Auto clocked-out worker: ${entry.workers.name}`);
       }
     }
 
@@ -156,7 +156,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in clock status check:', error);
     return new Response(JSON.stringify({ 
-      error: (error as Error).message,
+      error: error.message,
       timestamp: new Date().toISOString()
     }), {
       status: 500,
@@ -166,62 +166,13 @@ serve(async (req) => {
 });
 
 async function sendPushNotification(workerId: string, title: string, body: string) {
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  )
+  // In a real implementation, this would send push notifications
+  // For now, we'll just log the notification
+  console.log(`NOTIFICATION for worker ${workerId}: ${title} - ${body}`);
   
-  try {
-    // Store notification in database for persistence
-    const { error: dbError } = await supabase
-      .from('notifications')
-      .insert({
-        worker_id: workerId,
-        title,
-        body,
-        type: 'reminder',
-        delivered_at: new Date().toISOString()
-      });
-
-    if (dbError) {
-      console.error('Failed to store notification in database:', dbError);
-    }
-
-    // Get worker's push token (if available)
-    const { data: prefs } = await supabase
-      .from('notification_preferences')
-      .select('push_token')
-      .eq('worker_id', workerId)
-      .single();
-
-    console.log(`NOTIFICATION for worker ${workerId}: ${title} - ${body}`);
-    
-    // If we have a push token, we could send real push notifications here
-    // For now, we'll rely on the in-app notification system
-    if (prefs?.push_token) {
-      console.log(`Would send push notification to token: ${prefs.push_token}`);
-      // TODO: Implement real push notification service integration
-      // - Web Push API
-      // - Firebase Cloud Messaging
-      // - OneSignal
-    }
-
-    return true;
-  } catch (error) {
-    console.error('Error sending push notification:', error);
-    
-    // Store failed notification for retry
-    await supabase
-      .from('notifications')
-      .insert({
-        worker_id: workerId,
-        title,
-        body,
-        type: 'reminder',
-        failed_reason: (error as Error).message,
-        retry_count: 1
-      });
-    
-    return false;
-  }
+  // You could integrate with services like:
+  // - Web Push API
+  // - Firebase Cloud Messaging
+  // - OneSignal
+  // - Or store notifications in database for the app to poll
 }
