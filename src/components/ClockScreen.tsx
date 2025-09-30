@@ -710,7 +710,6 @@ export default function ClockScreen() {
             <div className="flex items-center space-x-3">
               <AutoTimeLogo size="small" showText={false} />
               <div>
-                <h1 className="text-xl font-bold text-white">AutoTime</h1>
                 {worker.organizations?.name && (
                   <span className="text-sm text-gray-300">
                     {worker.organizations.name}
