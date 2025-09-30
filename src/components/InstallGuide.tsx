@@ -101,10 +101,6 @@ export default function InstallGuide() {
               <h3 className="font-semibold">Benefits of Installing:</h3>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 bg-[#FF6B35] rounded-full"></div>
-                  Works offline for better reliability
-                </li>
-                <li className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
                   Faster loading and smoother performance
                 </li>
