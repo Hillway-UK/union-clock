@@ -74,21 +74,12 @@ export default function Profile() {
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowPasswordDialog(true)}
-                className="p-2 text-white hover:bg-gray-800 rounded-lg transition-colors"
-                title="Change Password"
-              >
-                <Lock className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => navigate('/clock')}
-                className="p-2 text-white hover:bg-gray-800 rounded-lg transition-colors"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </button>
-            </div>
+            <button
+              onClick={() => navigate('/clock')}
+              className="p-2 text-white hover:bg-gray-800 rounded-lg transition-colors"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
           </div>
         </div>
       </div>
@@ -104,9 +95,16 @@ export default function Profile() {
                 <User className="h-10 w-10 text-gray-500" />
               )}
             </div>
-            <div>
+            <div className="flex-1">
               <h2 className="text-2xl font-bold text-gray-900">{worker?.name}</h2>
               <p className="text-gray-600">{worker?.email}</p>
+              <button
+                onClick={() => setShowPasswordDialog(true)}
+                className="mt-3 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-900 rounded-lg transition-colors text-sm font-medium flex items-center gap-2"
+              >
+                <Lock className="h-4 w-4" />
+                Change Password
+              </button>
             </div>
           </div>
 
