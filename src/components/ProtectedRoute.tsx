@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
+import FirstLoginPasswordDialog from '@/components/FirstLoginPasswordDialog';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -11,6 +12,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -31,6 +33,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
           if (event === 'SIGNED_OUT') {
             setSession(null);
             setUser(null);
+            setMustChangePassword(false);
             setLoading(false);
             return;
           }
@@ -42,12 +45,24 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
                 setSession(session);
                 setUser(session?.user ?? null);
                 setLoading(false);
+                
+                if (session?.user) {
+                  setTimeout(() => {
+                    checkPasswordChangeRequired(session.user.email!);
+                  }, 0);
+                }
               }
             }, 200);
           } else {
             setSession(session);
             setUser(session?.user ?? null);
             setLoading(false);
+            
+            if (session?.user) {
+              setTimeout(() => {
+                checkPasswordChangeRequired(session.user.email!);
+              }, 0);
+            }
           }
         }
       }
@@ -59,6 +74,12 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+        
+        if (session?.user) {
+          setTimeout(() => {
+            checkPasswordChangeRequired(session.user.email!);
+          }, 0);
+        }
       }
     });
 
@@ -70,6 +91,22 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
       subscription.unsubscribe();
     };
   }, []);
+
+  const checkPasswordChangeRequired = async (email: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('workers')
+        .select('must_change_password')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (!error && data) {
+        setMustChangePassword(data.must_change_password || false);
+      }
+    } catch (error) {
+      console.error('Error checking password change requirement:', error);
+    }
+  };
 
   useEffect(() => {
     if (!loading && !user) {
@@ -93,5 +130,10 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     return null; // Will redirect to login
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      {mustChangePassword && <FirstLoginPasswordDialog open={mustChangePassword} />}
+      {children}
+    </>
+  );
 }

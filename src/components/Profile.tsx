@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { User, ArrowLeft, Clock, FileText } from 'lucide-react';
+import { User, ArrowLeft, Clock, FileText, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import AutoTimeLogo from '@/components/AutoTimeLogo';
+import ChangePasswordDialog from '@/components/ChangePasswordDialog';
 
 export default function Profile() {
   const navigate = useNavigate();
   const [worker, setWorker] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [organizationName, setOrganizationName] = useState<string>('');
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
 
   useEffect(() => {
     fetchWorkerProfile();
@@ -72,12 +74,21 @@ export default function Profile() {
                 )}
               </div>
             </div>
-            <button
-              onClick={() => navigate('/clock')}
-              className="p-2 text-white hover:bg-gray-800 rounded-lg transition-colors"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowPasswordDialog(true)}
+                className="p-2 text-white hover:bg-gray-800 rounded-lg transition-colors"
+                title="Change Password"
+              >
+                <Lock className="h-5 w-5" />
+              </button>
+              <button
+                onClick={() => navigate('/clock')}
+                className="p-2 text-white hover:bg-gray-800 rounded-lg transition-colors"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -140,6 +151,11 @@ export default function Profile() {
           </button>
         </div>
       </div>
+
+      <ChangePasswordDialog 
+        open={showPasswordDialog} 
+        onOpenChange={setShowPasswordDialog} 
+      />
     </div>
   );
 }
