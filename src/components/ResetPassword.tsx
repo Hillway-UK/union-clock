@@ -137,7 +137,7 @@ export default function ResetPassword() {
 
       // Sign out to force fresh login with new password
       await supabase.auth.signOut();
-      navigate('/login');
+      window.location.href = 'https://autotimeworkers.hillwayco.uk/login';
     } catch (error) {
       console.error('💥 Unexpected password reset error:', error);
       const errorMsg = error instanceof Error ? error.message : 'An unexpected error occurred';
