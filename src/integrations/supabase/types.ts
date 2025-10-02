@@ -72,6 +72,121 @@ export type Database = {
           },
         ]
       }
+      audit_logs: {
+        Row: {
+          action: string
+          actor_id: string
+          created_at: string | null
+          id: string
+          ip_address: string | null
+          metadata: Json | null
+          target_id: string
+          timestamp: string
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          actor_id: string
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          target_id: string
+          timestamp?: string
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          target_id?: string
+          timestamp?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
+      auto_clockout_audit: {
+        Row: {
+          decided_at: string
+          decided_by: string
+          id: string
+          notes: string | null
+          performed: boolean
+          reason: Database["public"]["Enums"]["auto_clockout_reason"]
+          shift_date: string
+          worker_id: string
+        }
+        Insert: {
+          decided_at?: string
+          decided_by?: string
+          id?: string
+          notes?: string | null
+          performed: boolean
+          reason: Database["public"]["Enums"]["auto_clockout_reason"]
+          shift_date: string
+          worker_id: string
+        }
+        Update: {
+          decided_at?: string
+          decided_by?: string
+          id?: string
+          notes?: string | null
+          performed?: boolean
+          reason?: Database["public"]["Enums"]["auto_clockout_reason"]
+          shift_date?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auto_clockout_audit_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      auto_clockout_counters: {
+        Row: {
+          count_monthly: number
+          last_auto_clockout_at: string | null
+          last_workday_auto: string | null
+          month: string
+          rolling14_count: number
+          updated_at: string
+          worker_id: string
+        }
+        Insert: {
+          count_monthly?: number
+          last_auto_clockout_at?: string | null
+          last_workday_auto?: string | null
+          month: string
+          rolling14_count?: number
+          updated_at?: string
+          worker_id: string
+        }
+        Update: {
+          count_monthly?: number
+          last_auto_clockout_at?: string | null
+          last_workday_auto?: string | null
+          month?: string
+          rolling14_count?: number
+          updated_at?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auto_clockout_counters_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: true
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clock_entries: {
         Row: {
           approved_at: string | null
@@ -91,6 +206,8 @@ export type Database = {
           manual_entry: boolean | null
           needs_approval: boolean | null
           notes: string | null
+          photo_required: boolean | null
+          source: string | null
           total_hours: number | null
           worker_id: string
         }
@@ -112,6 +229,8 @@ export type Database = {
           manual_entry?: boolean | null
           needs_approval?: boolean | null
           notes?: string | null
+          photo_required?: boolean | null
+          source?: string | null
           total_hours?: number | null
           worker_id: string
         }
@@ -133,6 +252,8 @@ export type Database = {
           manual_entry?: boolean | null
           needs_approval?: boolean | null
           notes?: string | null
+          photo_required?: boolean | null
+          source?: string | null
           total_hours?: number | null
           worker_id?: string
         }
@@ -258,6 +379,9 @@ export type Database = {
           name: string
           organization_id: string | null
           postcode: string | null
+          shift_days: number[] | null
+          shift_end: string | null
+          shift_start: string | null
         }
         Insert: {
           address: string
@@ -275,6 +399,9 @@ export type Database = {
           name: string
           organization_id?: string | null
           postcode?: string | null
+          shift_days?: number[] | null
+          shift_end?: string | null
+          shift_start?: string | null
         }
         Update: {
           address?: string
@@ -292,6 +419,9 @@ export type Database = {
           name?: string
           organization_id?: string | null
           postcode?: string | null
+          shift_days?: number[] | null
+          shift_end?: string | null
+          shift_start?: string | null
         }
         Relationships: [
           {
@@ -307,32 +437,44 @@ export type Database = {
         Row: {
           created_at: string | null
           email: string
+          first_login_completed: boolean | null
           id: string
           is_admin: boolean | null
           is_super: boolean | null
+          must_change_password: boolean | null
           name: string
           organization_id: string | null
+          password_reset_count: number | null
           pin: string | null
+          temporary_password_created_at: string | null
         }
         Insert: {
           created_at?: string | null
           email: string
+          first_login_completed?: boolean | null
           id?: string
           is_admin?: boolean | null
           is_super?: boolean | null
+          must_change_password?: boolean | null
           name: string
           organization_id?: string | null
+          password_reset_count?: number | null
           pin?: string | null
+          temporary_password_created_at?: string | null
         }
         Update: {
           created_at?: string | null
           email?: string
+          first_login_completed?: boolean | null
           id?: string
           is_admin?: boolean | null
           is_super?: boolean | null
+          must_change_password?: boolean | null
           name?: string
           organization_id?: string | null
+          password_reset_count?: number | null
           pin?: string | null
+          temporary_password_created_at?: string | null
         }
         Relationships: [
           {
@@ -347,6 +489,41 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_log: {
+        Row: {
+          canceled: boolean | null
+          id: string
+          notification_type: string
+          sent_at: string
+          shift_date: string
+          worker_id: string
+        }
+        Insert: {
+          canceled?: boolean | null
+          id?: string
+          notification_type: string
+          sent_at?: string
+          shift_date: string
+          worker_id: string
+        }
+        Update: {
+          canceled?: boolean | null
+          id?: string
+          notification_type?: string
+          sent_at?: string
+          shift_date?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_log_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
             referencedColumns: ["id"]
           },
         ]
@@ -819,7 +996,15 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      auto_clockout_reason:
+        | "OK"
+        | "CAP_MONTH"
+        | "CAP_ROLLING14"
+        | "CONSECUTIVE_BLOCK"
+        | "NO_CLOCK_IN"
+        | "NO_SHIFT"
+        | "ALREADY_CLOCKED_OUT"
+        | "UNKNOWN"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -946,6 +1131,17 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      auto_clockout_reason: [
+        "OK",
+        "CAP_MONTH",
+        "CAP_ROLLING14",
+        "CONSECUTIVE_BLOCK",
+        "NO_CLOCK_IN",
+        "NO_SHIFT",
+        "ALREADY_CLOCKED_OUT",
+        "UNKNOWN",
+      ],
+    },
   },
 } as const
