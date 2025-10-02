@@ -63,8 +63,16 @@ export default function NotificationPanel({ workerId }: NotificationPanelProps) 
         },
         (payload) => {
           console.log('New notification received:', payload);
-          setNotifications((prev) => [payload.new as Notification, ...prev]);
+          const newNotif = payload.new as Notification;
+          
+          setNotifications((prev) => [newNotif, ...prev]);
           setUnreadCount((prev) => prev + 1);
+          
+          // Trigger dual push (SW + Page) for new notification
+          NotificationService.attemptPushNotificationBoth(
+            newNotif.title,
+            newNotif.body
+          ).catch(err => console.error('[notif-panel] Dual push error:', err));
         }
       )
       .on(

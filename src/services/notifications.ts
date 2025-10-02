@@ -75,6 +75,51 @@ export class NotificationService {
     }
   }
 
+  // Dual push: ALWAYS fire both SW + Page (never branch, never throw)
+  static async attemptPushNotificationBoth(title: string, body: string): Promise<void> {
+    const options = {
+      body,
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      tag: 'autotime-notification',
+      requireInteraction: false,
+      silent: false,
+    };
+
+    // 1) Service Worker path (don't wait on .ready, just try getRegistration)
+    try {
+      if ('serviceWorker' in navigator) {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) {
+          reg.showNotification(title, options)
+            .catch(err => console.log('[notif-dual] SW showNotification failed:', err));
+        }
+      }
+    } catch (err) {
+      console.log('[notif-dual] SW registration failed:', err);
+    }
+
+    // 2) Page Notification API (always attempt in parallel)
+    try {
+      if ('Notification' in window) {
+        if (Notification.permission === 'granted') {
+          new Notification(title, options);
+        } else if (Notification.permission === 'default') {
+          // Request once, then show if granted
+          const perm = await Notification.requestPermission();
+          if (perm === 'granted') {
+            new Notification(title, options);
+          }
+        }
+        // If 'denied', just skip - don't block anything
+      }
+    } catch (err) {
+      console.log('[notif-dual] Page Notification failed:', err);
+    }
+    
+    // Never throw - push failures must not block in-app persistence
+  }
+
   // Attempt push notification via ServiceWorker or fallback
   static async attemptPushNotification(title: string, body: string): Promise<void> {
     try {

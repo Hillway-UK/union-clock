@@ -6,6 +6,42 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Compute current date/time in UK timezone (Europe/London with DST)
+function nowInTz(tz: string = 'Europe/London') {
+  const now = new Date();
+  
+  // Use Intl.DateTimeFormat to handle DST automatically
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone: tz,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    weekday: 'short'
+  });
+  
+  const parts = formatter.formatToParts(now);
+  const get = (type: string) => parts.find(p => p.type === type)?.value || '';
+  
+  // Format: DD/MM/YYYY for en-GB
+  const day = get('day');
+  const month = get('month');
+  const year = get('year');
+  const dateStr = `${year}-${month}-${day}`; // YYYY-MM-DD
+  const timeHHmm = `${get('hour')}:${get('minute')}`; // HH:MM
+  
+  // Get day of week (0=Sun, 1=Mon, ..., 6=Sat)
+  const weekdayName = get('weekday'); // Mon, Tue, etc.
+  const dayOfWeekMap: Record<string, number> = {
+    'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6
+  };
+  const dayOfWeek = dayOfWeekMap[weekdayName] || 0;
+  
+  return { dateStr, timeHHmm, dayOfWeek, tzOffset: tz };
+}
+
 interface Worker {
   id: string;
   name: string;
@@ -36,12 +72,11 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    const now = new Date();
-    const dayOfWeek = now.getDay();
-    const currentTime = now.toTimeString().slice(0, 5); // HH:MM format
-    const siteDate = new Date(now.toISOString().split('T')[0]); // Date only
+    const siteTime = nowInTz('Europe/London');
+    const { dateStr, timeHHmm, dayOfWeek } = siteTime;
+    const siteDate = new Date(dateStr + 'T00:00:00Z'); // Date-only in UTC for shift_date
     
-    console.log(`Running check-clock-status at ${now.toISOString()}, day: ${dayOfWeek}, time: ${currentTime}`);
+    console.log(`Running check-clock-status at ${new Date().toISOString()}, UK time: ${dateStr} ${timeHHmm}, day: ${dayOfWeek}`);
 
     // Only run on weekdays (Monday=1, Friday=5)
     if (dayOfWeek === 0 || dayOfWeek === 6) {
@@ -57,8 +92,8 @@ serve(async (req) => {
     // Route to appropriate handler based on time
     const reminderTimes = ['06:55', '07:00', '07:15', '15:00', '15:30', '16:00', '17:00'];
     
-    if (!reminderTimes.includes(currentTime)) {
-      console.log(`Current time ${currentTime} not in reminder schedule, exiting`);
+    if (!reminderTimes.includes(timeHHmm)) {
+      console.log(`Current UK time ${timeHHmm} not in reminder schedule, exiting`);
       return new Response(JSON.stringify({ message: 'Not a scheduled time' }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -70,17 +105,17 @@ serve(async (req) => {
     console.log(`Found ${workers.length} workers scheduled for 7-15 shift`);
 
     // Handle clock-in reminders
-    if (['06:55', '07:00', '07:15'].includes(currentTime)) {
-      actionsPerformed += await handleClockInReminders(supabase, currentTime, siteDate, workers);
+    if (['06:55', '07:00', '07:15'].includes(timeHHmm)) {
+      actionsPerformed += await handleClockInReminders(supabase, timeHHmm, siteDate, workers);
     }
     
     // Handle clock-out reminders
-    else if (['15:00', '15:30', '16:00'].includes(currentTime)) {
-      actionsPerformed += await handleClockOutReminders(supabase, currentTime, siteDate, workers);
+    else if (['15:00', '15:30', '16:00'].includes(timeHHmm)) {
+      actionsPerformed += await handleClockOutReminders(supabase, timeHHmm, siteDate, workers);
     }
     
-    // Handle auto clock-out
-    else if (currentTime === '17:00') {
+    // Handle auto clock-out at 17:00 UK time
+    else if (timeHHmm === '17:00') {
       actionsPerformed += await handleAutoClockOut(supabase, siteDate, workers);
     }
 
