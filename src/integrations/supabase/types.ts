@@ -579,6 +579,7 @@ export type Database = {
         Row: {
           body: string
           created_at: string
+          dedupe_key: string | null
           delivered_at: string | null
           failed_reason: string | null
           id: string
@@ -591,6 +592,7 @@ export type Database = {
         Insert: {
           body: string
           created_at?: string
+          dedupe_key?: string | null
           delivered_at?: string | null
           failed_reason?: string | null
           id?: string
@@ -603,6 +605,7 @@ export type Database = {
         Update: {
           body?: string
           created_at?: string
+          dedupe_key?: string | null
           delivered_at?: string | null
           failed_reason?: string | null
           id?: string
@@ -861,6 +864,7 @@ export type Database = {
           email: string
           emergency_contact: string | null
           emergency_phone: string | null
+          first_login_info_dismissed: boolean | null
           hourly_rate: number
           id: string
           is_active: boolean | null
@@ -878,6 +882,7 @@ export type Database = {
           email: string
           emergency_contact?: string | null
           emergency_phone?: string | null
+          first_login_info_dismissed?: boolean | null
           hourly_rate?: number
           id?: string
           is_active?: boolean | null
@@ -895,6 +900,7 @@ export type Database = {
           email?: string
           emergency_contact?: string | null
           emergency_phone?: string | null
+          first_login_info_dismissed?: boolean | null
           hourly_rate?: number
           id?: string
           is_active?: boolean | null

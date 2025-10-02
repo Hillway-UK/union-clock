@@ -4,11 +4,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Camera, MapPin, Clock, LogOut, Loader2, User, HelpCircle, X, Check, Wallet, RefreshCw, Construction, Bell, BellOff, FileText, Info } from 'lucide-react';
+import { Camera, MapPin, Clock, LogOut, Loader2, User, HelpCircle, X, Check, Wallet, RefreshCw, Construction, FileText, Info } from 'lucide-react';
 import { toast } from 'sonner';
-import { NotificationService } from '@/services/notifications';
 import AutoTimeLogo from '@/components/AutoTimeLogo';
 import PWAInstallDialog from '@/components/PWAInstallDialog';
+import NotificationPanel from '@/components/NotificationPanel';
 
 interface Worker {
   id: string;
@@ -70,8 +70,6 @@ export default function ClockScreen() {
   const [refreshingJobs, setRefreshingJobs] = useState(false);
   const [showExpenseDialog, setShowExpenseDialog] = useState(false);
   const [completedClockEntry, setCompletedClockEntry] = useState<any>(null);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const [showNotificationToggle, setShowNotificationToggle] = useState(false);
   const [showPWADialog, setShowPWADialog] = useState(false);
 
   useEffect(() => {
@@ -108,7 +106,6 @@ export default function ClockScreen() {
       checkCurrentStatus();
       requestLocation();
       fetchExpenseTypes();
-      setupNotifications();
       
       // Check if this is first visit and show PWA install dialog
       const hasSeenPWADialog = localStorage.getItem('hasSeenPWADialog');
@@ -122,84 +119,14 @@ export default function ClockScreen() {
         setCurrentTime(new Date());
       }, 1000);
 
-      // Set up notification checking
-      let notificationInterval: NodeJS.Timeout;
-      if (worker?.id) {
-        notificationInterval = setInterval(() => {
-          if (notificationsEnabled) {
-            NotificationService.checkAndNotify(worker.id);
-          }
-        }, 60000); // Check every minute
-      }
-
       return () => {
         clearInterval(timeInterval);
-        if (notificationInterval) clearInterval(notificationInterval);
       };
     };
 
     init();
   }, []);
 
-  const setupNotifications = async () => {
-    if (!worker?.id) return;
-    
-    try {
-      const enabled = await NotificationService.checkNotificationStatus(worker.id);
-      setNotificationsEnabled(enabled);
-    } catch (error) {
-      console.error('Error checking notification status:', error);
-    }
-  };
-
-  const handleNotificationToggle = async () => {
-    try {
-      if (!notificationsEnabled) {
-        const permission = await Notification.requestPermission();
-        
-        if (permission === 'granted') {
-          await supabase
-            .from('notification_preferences')
-            .upsert({
-              worker_id: worker?.id,
-              morning_reminder: true,
-              evening_reminder: true,
-              updated_at: new Date().toISOString()
-            });
-          
-          setNotificationsEnabled(true);
-          toast.success('Notifications enabled');
-          
-          new Notification('AutoTime', {
-            body: 'Notifications are now enabled!',
-            icon: '/icon-192.png'
-          });
-        } else {
-          toast.error('Please enable notifications in browser settings');
-        }
-      } else {
-        await supabase
-          .from('notification_preferences')
-          .upsert({
-            worker_id: worker?.id,
-            morning_reminder: false,
-            evening_reminder: false
-          });
-        
-        setNotificationsEnabled(false);
-        toast.success('Notifications disabled');
-      }
-      
-      setShowNotificationToggle(false);
-    } catch (error) {
-      console.error('Notification error:', error);
-      toast.error('Failed to update notifications');
-    }
-  };
-
-  const toggleNotifications = async () => {
-    setShowNotificationToggle(true);
-  };
 
   // Real-time jobs listener
   useEffect(() => {
@@ -737,17 +664,7 @@ export default function ClockScreen() {
                 <User className="h-5 w-5" />
               </button>
               
-              <button
-                onClick={toggleNotifications}
-                className={`p-2 text-white hover:bg-gray-800 rounded-lg transition-colors ${notificationsEnabled ? 'bg-gray-800' : ''}`}
-                title={notificationsEnabled ? 'Notifications Enabled' : 'Enable Notifications'}
-              >
-                {notificationsEnabled ? (
-                  <Bell className="h-5 w-5" />
-                ) : (
-                  <BellOff className="h-5 w-5 text-gray-400" />
-                )}
-              </button>
+              {worker && <NotificationPanel workerId={worker.id} />}
               
               <button
                 onClick={() => setShowPWADialog(true)}
@@ -1000,58 +917,6 @@ export default function ClockScreen() {
                   </Button>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
-        
-        {/* Notification Toggle Modal */}
-        {showNotificationToggle && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl p-6 max-w-sm w-full">
-              <h3 className="text-lg font-semibold mb-4">Notification Settings</h3>
-              
-              {Notification.permission === 'denied' ? (
-                <div className="space-y-4">
-                  <p className="text-gray-600">
-                    Notifications are blocked by your browser.
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    To enable: Go to browser settings → Site settings → Notifications → Allow AutoTime
-                  </p>
-                  <button
-                    onClick={() => setShowNotificationToggle(false)}
-                    className="w-full py-3 bg-black text-white rounded-xl"
-                  >
-                    OK
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <p className="text-gray-600">
-                    {notificationsEnabled 
-                      ? 'Notifications are currently enabled'
-                      : 'Enable notifications to receive clock in/out reminders'}
-                  </p>
-                  <div className="flex space-x-3">
-                    <button
-                      onClick={handleNotificationToggle}
-                      className={`flex-1 py-3 rounded-xl font-medium ${
-                        notificationsEnabled 
-                          ? 'bg-red-500 text-white' 
-                          : 'bg-green-500 text-white'
-                      }`}
-                    >
-                      {notificationsEnabled ? 'Disable' : 'Enable'}
-                    </button>
-                    <button
-                      onClick={() => setShowNotificationToggle(false)}
-                      className="flex-1 py-3 bg-gray-200 rounded-xl font-medium"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         )}

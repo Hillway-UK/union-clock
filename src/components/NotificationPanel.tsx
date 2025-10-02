@@ -1,0 +1,203 @@
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { NotificationService } from '@/services/notifications';
+import { Bell, Check } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
+import { formatDistanceToNow } from 'date-fns';
+
+interface Notification {
+  id: string;
+  title: string;
+  body: string;
+  type: string;
+  created_at: string;
+  read_at: string | null;
+}
+
+interface NotificationPanelProps {
+  workerId: string;
+}
+
+export default function NotificationPanel({ workerId }: NotificationPanelProps) {
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [open, setOpen] = useState(false);
+
+  // Load notifications
+  useEffect(() => {
+    loadNotifications();
+    setupRealtimeSubscription();
+  }, [workerId]);
+
+  const loadNotifications = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('worker_id', workerId)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      
+      setNotifications(data || []);
+      updateUnreadCount(data || []);
+    } catch (error) {
+      console.error('Error loading notifications:', error);
+    }
+  };
+
+  const setupRealtimeSubscription = () => {
+    const channel = supabase
+      .channel('notifications-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `worker_id=eq.${workerId}`
+        },
+        (payload) => {
+          console.log('New notification received:', payload);
+          setNotifications((prev) => [payload.new as Notification, ...prev]);
+          setUnreadCount((prev) => prev + 1);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `worker_id=eq.${workerId}`
+        },
+        (payload) => {
+          setNotifications((prev) =>
+            prev.map((n) => (n.id === payload.new.id ? payload.new as Notification : n))
+          );
+          loadNotifications(); // Refresh to update unread count
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  };
+
+  const updateUnreadCount = (notifs: Notification[]) => {
+    const count = notifs.filter((n) => !n.read_at).length;
+    setUnreadCount(count);
+  };
+
+  const handleMarkAsRead = async (notificationId: string) => {
+    await NotificationService.markAsRead(notificationId);
+    setNotifications((prev) =>
+      prev.map((n) =>
+        n.id === notificationId ? { ...n, read_at: new Date().toISOString() } : n
+      )
+    );
+    setUnreadCount((prev) => Math.max(0, prev - 1));
+  };
+
+  const handleMarkAllAsRead = async () => {
+    await NotificationService.markAllAsRead(workerId);
+    setNotifications((prev) =>
+      prev.map((n) => ({ ...n, read_at: new Date().toISOString() }))
+    );
+    setUnreadCount(0);
+  };
+
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>
+        <button
+          className="relative p-2 text-white hover:bg-gray-800 rounded-lg transition-colors"
+          title="Notifications"
+        >
+          <Bell className="h-5 w-5" />
+          {unreadCount > 0 && (
+            <Badge
+              variant="destructive"
+              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
+            >
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </Badge>
+          )}
+        </button>
+      </SheetTrigger>
+      
+      <SheetContent side="right" className="w-full sm:max-w-md">
+        <SheetHeader>
+          <SheetTitle className="flex items-center justify-between">
+            <span>Notifications</span>
+            {unreadCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleMarkAllAsRead}
+                className="text-xs"
+              >
+                <Check className="h-4 w-4 mr-1" />
+                Mark all read
+              </Button>
+            )}
+          </SheetTitle>
+        </SheetHeader>
+
+        <ScrollArea className="h-[calc(100vh-8rem)] mt-4">
+          {notifications.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Bell className="h-12 w-12 mx-auto mb-2 opacity-20" />
+              <p>No notifications yet</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {notifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  className={`p-3 rounded-lg border transition-colors ${
+                    notification.read_at
+                      ? 'bg-background border-border'
+                      : 'bg-primary/5 border-primary/20'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-sm mb-1">
+                        {notification.title}
+                      </h4>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        {notification.body}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDistanceToNow(new Date(notification.created_at), {
+                          addSuffix: true
+                        })}
+                      </p>
+                    </div>
+                    {!notification.read_at && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 shrink-0"
+                        onClick={() => handleMarkAsRead(notification.id)}
+                        title="Mark as read"
+                      >
+                        <Check className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </ScrollArea>
+      </SheetContent>
+    </Sheet>
+  );
+}

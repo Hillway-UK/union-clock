@@ -160,9 +160,9 @@ async function handleClockInReminders(
 
     // Send reminder
     const title = getClockInTitle(currentTime);
-    const body = 'Time to clock in for your 7am-3pm shift.';
+    const body = 'Shift starts at 7:00. Please clock in.';
     
-    await sendNotification(supabase, worker.id, title, body, notifType);
+    await sendNotification(supabase, worker.id, title, body, notifType, siteDate);
     await logNotification(supabase, worker.id, notifType, siteDate);
     
     sent++;
@@ -201,9 +201,9 @@ async function handleClockOutReminders(
 
     // Send reminder
     const title = getClockOutTitle(currentTime);
-    const body = 'Time to clock out. Your shift ends at 3pm.';
+    const body = 'Shift ended at 15:00. Please clock out.';
     
-    await sendNotification(supabase, worker.id, title, body, notifType);
+    await sendNotification(supabase, worker.id, title, body, notifType, siteDate);
     await logNotification(supabase, worker.id, notifType, siteDate);
     
     sent++;
@@ -297,8 +297,9 @@ async function handleAutoClockOut(
       supabase,
       worker.id,
       'Auto Clocked-Out',
-      'You were auto clocked-out at 17:00. If incorrect, submit an amendment.',
-      'auto_clockout_confirm'
+      'You were auto clocked-out at 17:00.',
+      'auto_clockout_confirm',
+      siteDate
     );
 
     // Cancel any remaining clock-out reminders
@@ -575,20 +576,46 @@ async function sendNotification(
   workerId: string, 
   title: string, 
   body: string, 
-  type: string
+  type: string,
+  shiftDate?: Date
 ) {
-  // Store notification in database
-  await supabase
-    .from('notifications')
-    .insert({
-      worker_id: workerId,
-      title: title,
-      body: body,
-      type: type,
-      delivered_at: new Date().toISOString()
-    });
+  try {
+    // Generate dedupe key for idempotency
+    const dateStr = shiftDate ? shiftDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+    const dedupeKey = `${workerId}:${dateStr}:${type}`;
 
-  console.log(`NOTIFICATION for worker ${workerId}: ${title} - ${body}`);
+    // Check if already sent (idempotency)
+    const { data: existing } = await supabase
+      .from('notifications')
+      .select('id')
+      .eq('dedupe_key', dedupeKey)
+      .maybeSingle();
+
+    if (existing) {
+      console.log(`Notification already sent: ${dedupeKey}`);
+      return;
+    }
+
+    // Insert notification with dedupe key
+    const { error } = await supabase
+      .from('notifications')
+      .insert({
+        worker_id: workerId,
+        title: title,
+        body: body,
+        type: type,
+        dedupe_key: dedupeKey,
+        created_at: new Date().toISOString()
+      });
+
+    if (error) {
+      console.error('Error sending notification:', error);
+    } else {
+      console.log(`Notification sent: ${type} to worker ${workerId}`);
+    }
+  } catch (error) {
+    console.error('Error in sendNotification:', error);
+  }
 }
 
 // ============================================================================
