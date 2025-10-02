@@ -2,6 +2,28 @@ import { supabase } from '@/integrations/supabase/client';
 
 export class NotificationService {
   
+  // Helper to get SW registration with timeout (prevents hanging)
+  static async getActiveSWRegistration(timeoutMs = 300): Promise<ServiceWorkerRegistration | null> {
+    if (!('serviceWorker' in navigator)) return null;
+
+    // First, check if we ALREADY have a controlling registration
+    try {
+      const existing = await navigator.serviceWorker.getRegistration();
+      if (existing) return existing;
+    } catch (_) {
+      /* ignore */
+    }
+
+    // As a last resort, wait briefly for .ready — but do NOT hang forever
+    try {
+      const p = navigator.serviceWorker.ready;
+      const t = new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs));
+      return (await Promise.race([p, t])) as ServiceWorkerRegistration | null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   // Generate dedupe key for idempotency
   static getDedupeKey(workerId: string, shiftDate: Date, kind: string, scheduledTime?: string): string {
     const dateStr = shiftDate.toISOString().split('T')[0];
@@ -55,43 +77,45 @@ export class NotificationService {
 
   // Attempt push notification via ServiceWorker or fallback
   static async attemptPushNotification(title: string, body: string): Promise<void> {
-    // Check permission first
-    if (!('Notification' in window)) {
-      console.log('This browser does not support notifications');
-      return;
-    }
-
-    if (Notification.permission !== 'granted') {
-      console.log('Notification permission not granted, skipping push');
-      return;
-    }
-
     try {
-      // Prefer ServiceWorker registration
-      if ('serviceWorker' in navigator) {
-        const registration = await navigator.serviceWorker.ready;
-        await registration.showNotification(title, {
-          body,
-          icon: '/icon-192.png',
-          badge: '/icon-192.png',
-          tag: 'autotime-notification',
-          requireInteraction: false,
-          silent: false
-        });
-      } else {
-        // Fallback to new Notification()
-        new Notification(title, {
-          body,
-          icon: '/icon-192.png',
-          badge: '/icon-192.png',
-          tag: 'autotime-notification',
-          requireInteraction: false,
-          silent: false
-        });
+      // 0) Environment sanity checks
+      if (!('Notification' in window)) {
+        console.log('[notif] Browser does not support Notification API');
+        return;
       }
+
+      // 1) Permission gate (page API will request if needed elsewhere)
+      if (Notification.permission !== 'granted') {
+        console.log('[notif] Permission not granted; skipping OS toast');
+        return; // We still keep the in-app row; just no OS toast
+      }
+
+      // 2) Try Service Worker path **only if a registration is actually present**
+      const reg = await this.getActiveSWRegistration();
+      if (reg) {
+        await reg.showNotification(title, {
+          body,
+          icon: '/icon-192.png',
+          badge: '/icon-192.png',
+          tag: 'autotime-notification',
+          requireInteraction: false,
+          silent: false,
+        });
+        return;
+      }
+
+      // 3) Fallback to PAGE Notification API (works in your tests)
+      new Notification(title, {
+        body,
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        tag: 'autotime-notification',
+        requireInteraction: false,
+        silent: false,
+      });
     } catch (error) {
-      console.error('Error showing push notification:', error);
-      // Don't throw - push failure should not block in-app notification
+      console.error('[notif] Error showing push notification:', error);
+      // Never throw; OS toast failure must not block in-app persistence
     }
   }
 
@@ -125,7 +149,8 @@ export class NotificationService {
       const hasPermission = await this.requestPermission();
       
       if (!hasPermission) {
-        throw new Error('Notification permission denied');
+        console.warn('[notif] Permission denied by user; will only insert in-app rows');
+        // Don't throw - still allow in-app notifications
       }
 
       const { error } = await supabase
@@ -142,7 +167,7 @@ export class NotificationService {
 
       if (error) throw error;
 
-      // Show test notification
+      // Show test notification (will work via page API even if SW isn't ready)
       await this.attemptPushNotification(
         'Notifications Enabled!',
         'You\'ll receive clock-in/out reminders during your shifts.'
