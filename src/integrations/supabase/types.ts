@@ -1000,6 +1000,18 @@ export type Database = {
         Args: { org_id: string }
         Returns: boolean
       }
+      user_is_manager_in_org: {
+        Args: { check_org_id: string }
+        Returns: boolean
+      }
+      user_is_super_admin_in_org: {
+        Args: { check_org_id: string }
+        Returns: boolean
+      }
+      user_is_worker: {
+        Args: { check_worker_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       auto_clockout_reason:
