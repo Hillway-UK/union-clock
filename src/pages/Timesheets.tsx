@@ -23,7 +23,7 @@ export default function Timesheets() {
   const [newClockIn, setNewClockIn] = useState('');
   const [newClockOut, setNewClockOut] = useState('');
   const [expenseTypes, setExpenseTypes] = useState<any[]>([]);
-  const [selectedExpenses, setSelectedExpenses] = useState<{description: string, amount: number}[]>([]);
+  const [selectedExpenses, setSelectedExpenses] = useState<{description: string, amount: number, expense_type_id?: string, isCustom?: boolean}[]>([]);
   const [existingAmendments, setExistingAmendments] = useState<any[]>([]);
   const [savingExpenses, setSavingExpenses] = useState(false);
   const [workerHourlyRate, setWorkerHourlyRate] = useState<number>(0);
@@ -327,7 +327,8 @@ export default function Timesheets() {
               date: format(parseISO(selectedEntry.clock_in), 'yyyy-MM-dd'),
               description: expense.description,
               amount: expense.amount,
-              cost_type: 'expense'
+              cost_type: 'expense',
+              expense_type_id: expense.expense_type_id || null
             });
 
           if (!error) {
@@ -459,12 +460,34 @@ export default function Timesheets() {
 
   // Add expense functions
   const addExpense = () => {
-    setSelectedExpenses([...selectedExpenses, { description: '', amount: 0 }]);
+    setSelectedExpenses([...selectedExpenses, { description: '', amount: 0, isCustom: false }]);
   };
 
   const updateExpense = (index: number, field: string, value: any) => {
     const updated = [...selectedExpenses];
-    updated[index] = { ...updated[index], [field]: value };
+    
+    // If changing expense type selection
+    if (field === 'expense_type_id') {
+      if (value === 'custom') {
+        // Switch to custom mode
+        updated[index] = { ...updated[index], isCustom: true, expense_type_id: undefined, description: '', amount: 0 };
+      } else {
+        // Pre-fill from expense type
+        const expenseType = expenseTypes.find(et => et.id === value);
+        if (expenseType) {
+          updated[index] = { 
+            ...updated[index], 
+            isCustom: false, 
+            expense_type_id: value, 
+            description: expenseType.name,
+            amount: parseFloat(expenseType.amount) 
+          };
+        }
+      }
+    } else {
+      updated[index] = { ...updated[index], [field]: value };
+    }
+    
     setSelectedExpenses(updated);
   };
 
@@ -685,62 +708,100 @@ export default function Timesheets() {
 
       {/* Expense Dialog */}
       <Dialog open={showExpenseDialog} onOpenChange={setShowExpenseDialog}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Expenses</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {selectedExpenses.map((expense, index) => (
-              <div key={index} className="flex gap-2 items-end">
-                <div className="flex-1">
-                  <label className="text-sm font-medium">Description</label>
-                  <input
-                    type="text"
-                    value={expense.description}
-                    onChange={(e) => updateExpense(index, 'description', e.target.value)}
-                    className="w-full p-2 border rounded-lg mt-1"
-                    placeholder="Travel, materials, etc."
-                  />
+              <div key={index} className="space-y-2 p-3 border rounded-lg bg-gray-50">
+                <div className="flex gap-2 items-start">
+                  <div className="flex-1 space-y-2">
+                    {/* Expense Type Selector */}
+                    <div>
+                      <Label className="text-sm font-medium">Expense Type</Label>
+                      <Select
+                        value={expense.isCustom ? 'custom' : (expense.expense_type_id || '')}
+                        onValueChange={(value) => updateExpense(index, 'expense_type_id', value)}
+                      >
+                        <SelectTrigger className="w-full mt-1 bg-white">
+                          <SelectValue placeholder="Select expense type..." />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white z-[100]">
+                          {expenseTypes.map((type) => (
+                            <SelectItem key={type.id} value={type.id}>
+                              {type.name} (£{parseFloat(type.amount).toFixed(2)})
+                            </SelectItem>
+                          ))}
+                          <SelectItem value="custom">Custom (Other)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Custom Description Input (shown only when custom is selected) */}
+                    {expense.isCustom && (
+                      <div>
+                        <Label className="text-sm font-medium">Description</Label>
+                        <Input
+                          type="text"
+                          value={expense.description}
+                          onChange={(e) => updateExpense(index, 'description', e.target.value)}
+                          className="w-full mt-1"
+                          placeholder="Enter custom expense description..."
+                        />
+                      </div>
+                    )}
+
+                    {/* Amount Input */}
+                    <div>
+                      <Label className="text-sm font-medium">Amount (£)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={expense.amount || 0}
+                        onChange={(e) => updateExpense(index, 'amount', parseFloat(e.target.value) || 0)}
+                        className="w-full mt-1"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                  
+                  <button
+                    onClick={() => removeExpense(index)}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg mt-6"
+                    title="Remove expense"
+                  >
+                    ×
+                  </button>
                 </div>
-                <div className="w-24">
-                  <label className="text-sm font-medium">Amount</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={expense.amount}
-                    onChange={(e) => updateExpense(index, 'amount', parseFloat(e.target.value))}
-                    className="w-full p-2 border rounded-lg mt-1"
-                    placeholder="0.00"
-                  />
-                </div>
-                <button
-                  onClick={() => removeExpense(index)}
-                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
-                >
-                  ×
-                </button>
               </div>
             ))}
+            
             <button
               onClick={addExpense}
-              className="w-full p-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-gray-400"
+              className="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-gray-400 hover:bg-gray-50 transition-colors"
             >
               + Add Another Expense
             </button>
+            
             <div className="flex gap-2 pt-4">
-              <button
-                onClick={() => setShowExpenseDialog(false)}
-                className="flex-1 px-4 py-2 border rounded-lg"
+              <Button
+                onClick={() => {
+                  setShowExpenseDialog(false);
+                  setSelectedExpenses([]);
+                }}
+                variant="outline"
+                className="flex-1"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleExpenseSubmit}
-                disabled={savingExpenses}
-                className="flex-1 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-50"
+                disabled={savingExpenses || selectedExpenses.length === 0}
+                className="flex-1"
               >
                 {savingExpenses ? 'Saving...' : 'Save Expenses'}
-              </button>
+              </Button>
             </div>
           </div>
         </DialogContent>
