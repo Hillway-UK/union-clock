@@ -323,6 +323,7 @@ export default function Timesheets() {
           const { error } = await supabase
             .from('additional_costs')
             .insert({
+              worker_id: workerData.id,
               clock_entry_id: selectedEntry.id,
               date: format(parseISO(selectedEntry.clock_in), 'yyyy-MM-dd'),
               description: expense.description,
