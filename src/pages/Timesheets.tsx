@@ -319,22 +319,48 @@ export default function Timesheets() {
       let successCount = 0;
 
       for (const expense of selectedExpenses) {
-        if (expense.description && expense.amount > 0) {
-          const { error } = await supabase
-            .from('additional_costs')
-            .insert({
-              worker_id: workerData.id,
-              clock_entry_id: selectedEntry.id,
-              date: format(parseISO(selectedEntry.clock_in), 'yyyy-MM-dd'),
-              description: expense.description,
-              amount: expense.amount,
-              cost_type: 'expense',
-              expense_type_id: expense.expense_type_id || null
-            });
+        // Improved validation
+        const trimmedDescription = expense.description?.trim();
+        const numericAmount = typeof expense.amount === 'string' ? parseFloat(expense.amount) : expense.amount;
+        
+        if (!trimmedDescription || trimmedDescription === '') {
+          console.error('Expense missing description:', expense);
+          continue; // Skip this expense
+        }
+        
+        if (!numericAmount || numericAmount <= 0) {
+          console.error('Expense missing or invalid amount:', expense);
+          continue; // Skip this expense
+        }
+        
+        console.log('Inserting expense:', {
+          worker_id: workerData.id,
+          clock_entry_id: selectedEntry.id,
+          date: format(parseISO(selectedEntry.clock_in), 'yyyy-MM-dd'),
+          description: trimmedDescription,
+          amount: numericAmount,
+          cost_type: 'expense',
+          expense_type_id: expense.expense_type_id || null
+        });
+        
+        const { error } = await supabase
+          .from('additional_costs')
+          .insert({
+            worker_id: workerData.id,
+            clock_entry_id: selectedEntry.id,
+            date: format(parseISO(selectedEntry.clock_in), 'yyyy-MM-dd'),
+            description: trimmedDescription,
+            amount: numericAmount,
+            cost_type: 'expense',
+            expense_type_id: expense.expense_type_id || null
+          });
 
-          if (!error) {
-            successCount++;
-          }
+        if (error) {
+          console.error('❌ Supabase insert error:', error);
+          toast.error(`Failed to add expense: ${error.message}`);
+        } else {
+          console.log('✅ Expense inserted successfully');
+          successCount++;
         }
       }
 
