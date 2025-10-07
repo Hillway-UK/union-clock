@@ -460,9 +460,38 @@ export default function ClockScreen() {
   const handleClockOut = async () => {
     if (!currentEntry || !worker) return;
     
+    // Check location is available
+    if (!location) {
+      toast.error('Location not available. Please enable location services.');
+      return;
+    }
+    
     setLoading(true);
     
     try {
+      // Get the job details to check geofence
+      const job = jobs.find(j => j.id === currentEntry.job_id);
+      if (!job) {
+        toast.error('Job not found');
+        setLoading(false);
+        return;
+      }
+      
+      // Calculate distance from job site
+      const distance = calculateDistance(
+        location.lat,
+        location.lng,
+        job.latitude,
+        job.longitude
+      );
+      
+      // Validate geofence
+      if (distance > job.geofence_radius) {
+        toast.error(`You must be within ${job.geofence_radius}m of the job site to clock out. You are ${Math.round(distance)}m away.`);
+        setLoading(false);
+        return;
+      }
+      
       // Take photo
       const photoBlob = await capturePhoto();
       const photoUrl = await uploadPhoto(photoBlob);
