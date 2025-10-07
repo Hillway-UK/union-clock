@@ -339,7 +339,7 @@ export default function Timesheets() {
           date: format(parseISO(selectedEntry.clock_in), 'yyyy-MM-dd'),
           description: trimmedDescription,
           amount: numericAmount,
-          cost_type: 'expense',
+          cost_type: 'other',
           expense_type_id: expense.expense_type_id || null
         });
         
@@ -351,7 +351,7 @@ export default function Timesheets() {
             date: format(parseISO(selectedEntry.clock_in), 'yyyy-MM-dd'),
             description: trimmedDescription,
             amount: numericAmount,
-            cost_type: 'expense',
+            cost_type: 'other',
             expense_type_id: expense.expense_type_id || null
           });
 
