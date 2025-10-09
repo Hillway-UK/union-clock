@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { NotificationService } from '@/services/notifications';
-import { Bell, Check } from 'lucide-react';
+import { Bell, Check, Sparkles, RefreshCw } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNow } from 'date-fns';
+import { useUpdate } from '@/contexts/UpdateContext';
 
 interface Notification {
   id: string;
@@ -25,6 +26,7 @@ export default function NotificationPanel({ workerId }: NotificationPanelProps) 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
+  const { updateAvailable, triggerUpdate, dismissUpdate } = useUpdate();
 
   // Load notifications
   useEffect(() => {
@@ -158,13 +160,47 @@ export default function NotificationPanel({ workerId }: NotificationPanelProps) 
         </SheetHeader>
 
         <ScrollArea className="h-[calc(100vh-8rem)] mt-4">
-          {notifications.length === 0 ? (
+          {notifications.length === 0 && !updateAvailable ? (
             <div className="text-center py-8 text-muted-foreground">
               <Bell className="h-12 w-12 mx-auto mb-2 opacity-20" />
               <p>No notifications yet</p>
             </div>
           ) : (
             <div className="space-y-2">
+              {updateAvailable && (
+                <div className="p-4 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 text-white">
+                  <div className="flex items-start gap-3">
+                    <Sparkles className="h-5 w-5 shrink-0 mt-0.5 animate-pulse" />
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-sm mb-1">
+                        System Update Available
+                      </h4>
+                      <p className="text-sm mb-3 opacity-90">
+                        A new version with updated features is ready. Refresh now to get the latest improvements.
+                      </p>
+                      <div className="flex gap-2 flex-wrap">
+                        <Button
+                          size="sm"
+                          onClick={triggerUpdate}
+                          className="bg-white text-purple-600 hover:bg-gray-100 font-semibold"
+                        >
+                          <RefreshCw className="h-4 w-4 mr-1" />
+                          Refresh Now
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={dismissUpdate}
+                          className="border-white text-white hover:bg-white/10"
+                        >
+                          Later
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               {notifications.map((notification) => (
                 <div
                   key={notification.id}
