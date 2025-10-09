@@ -26,17 +26,44 @@ export default function Profile() {
         return;
       }
 
-      const { data: workerData, error } = await supabase
+      let workerData;
+      const { data: workerResult, error } = await supabase
         .from('workers')
         .select('*, organizations!organization_id(name, logo_url)')
         .eq('email', user.email)
         .single();
 
-      if (error) {
+      if (error?.code === 'PGRST201' || error?.message?.includes('more than one relationship')) {
+        console.warn('⚠️ PGRST201 embed error, using fallback fetch');
+        
+        // Fallback: fetch worker and org separately
+        const { data: worker, error: workerError } = await supabase
+          .from('workers')
+          .select('*')
+          .eq('email', user.email)
+          .single();
+        
+        if (workerError || !worker) {
+          console.error('Error fetching worker:', workerError);
+          toast.error('Failed to load worker profile');
+          setLoading(false);
+          return;
+        }
+        
+        const { data: org } = await supabase
+          .from('organizations')
+          .select('name, logo_url')
+          .eq('id', worker.organization_id)
+          .maybeSingle();
+        
+        workerData = { ...worker, organizations: org || { name: '', logo_url: null } };
+      } else if (error) {
         console.error('Error fetching worker:', error);
         toast.error('Failed to load worker profile');
         setLoading(false);
         return;
+      } else {
+        workerData = workerResult;
       }
 
       if (workerData) {

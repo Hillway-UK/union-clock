@@ -54,17 +54,44 @@ export default function Timesheets() {
       }
 
       // First get worker profile by email
-      const { data: workerData, error: workerError } = await supabase
+      let workerData;
+      const { data: workerResult, error: workerError } = await supabase
         .from('workers')
         .select('id, hourly_rate, organizations!organization_id(name, logo_url)')
         .eq('email', user.email)
         .single();
 
-      if (workerError || !workerData) {
+      if (workerError?.code === 'PGRST201' || workerError?.message?.includes('more than one relationship')) {
+        console.warn('⚠️ PGRST201 embed error, using fallback fetch');
+        
+        // Fallback: fetch worker and org separately
+        const { data: worker, error: fallbackError } = await supabase
+          .from('workers')
+          .select('id, hourly_rate, organization_id')
+          .eq('email', user.email)
+          .single();
+        
+        if (fallbackError || !worker) {
+          console.log('Worker not found for email:', user.email);
+          toast.error('Worker profile not found');
+          setLoading(false);
+          return;
+        }
+        
+        const { data: org } = await supabase
+          .from('organizations')
+          .select('name, logo_url')
+          .eq('id', worker.organization_id)
+          .maybeSingle();
+        
+        workerData = { ...worker, organizations: org || { name: '', logo_url: null } };
+      } else if (workerError || !workerResult) {
         console.log('Worker not found for email:', user.email);
         toast.error('Worker profile not found');
         setLoading(false);
         return;
+      } else {
+        workerData = workerResult;
       }
 
       setWorkerHourlyRate(workerData.hourly_rate || 0);

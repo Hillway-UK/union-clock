@@ -81,15 +81,55 @@ export default function ClockScreen() {
         return;
       }
 
-      const { data: workerRow, error } = await supabase
+      let workerRow;
+      const { data: workerData, error } = await supabase
         .from('workers')
         .select('*, organizations!organization_id(name, logo_url)')
         .eq('email', user.email)
         .maybeSingle();
       
-      if (error || !workerRow) {
-        // No worker profile; sign out to avoid redirect loops
+      if (error?.code === 'PGRST201' || error?.message?.includes('more than one relationship')) {
+        console.warn('⚠️ PGRST201 embed error, using fallback fetch');
+        
+        // Fallback: fetch worker and org separately
+        const { data: worker, error: workerError } = await supabase
+          .from('workers')
+          .select('*')
+          .eq('email', user.email)
+          .maybeSingle();
+        
+        if (workerError || !worker) {
+          console.error('Worker fetch error:', workerError);
+          await supabase.auth.signOut();
+          navigate('/login', { replace: true });
+          return;
+        }
+        
+        if (!worker.is_active) {
+          console.error('Worker is inactive');
+          await supabase.auth.signOut();
+          navigate('/login', { replace: true });
+          return;
+        }
+        
+        const { data: org } = await supabase
+          .from('organizations')
+          .select('name, logo_url')
+          .eq('id', worker.organization_id)
+          .maybeSingle();
+        
+        workerRow = { ...worker, organizations: org || { name: '', logo_url: null } };
+      } else if (error || !workerData) {
         console.error('Worker fetch error:', error);
+        await supabase.auth.signOut();
+        navigate('/login', { replace: true });
+        return;
+      } else {
+        workerRow = workerData;
+      }
+      
+      if (!workerRow.is_active) {
+        console.error('Worker is inactive');
         await supabase.auth.signOut();
         navigate('/login', { replace: true });
         return;

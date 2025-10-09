@@ -1,4 +1,4 @@
-const VERSION = '1.0.0';
+const VERSION = '1.0.1';
 const CACHE_NAME = `autotime-v${VERSION}`;
 const PRECACHE_URLS = [
   '/',
