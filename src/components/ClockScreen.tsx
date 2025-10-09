@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Camera, MapPin, Clock, LogOut, Loader2, User, HelpCircle, X, Check, Wallet, RefreshCw, Construction, FileText, Info } from 'lucide-react';
 import { toast } from 'sonner';
-import AutoTimeLogo from '@/components/AutoTimeLogo';
+import OrganizationLogo from '@/components/OrganizationLogo';
 import PWAInstallDialog from '@/components/PWAInstallDialog';
 import NotificationPanel from '@/components/NotificationPanel';
 
@@ -16,7 +16,7 @@ interface Worker {
   email: string;
   is_active: boolean;
   organization_id?: string;
-  organizations?: { name: string };
+  organizations?: { name: string; logo_url?: string };
 }
 
 interface Job {
@@ -81,7 +81,7 @@ export default function ClockScreen() {
         if (user?.email) {
           const { data: workerRow, error } = await supabase
             .from('workers')
-            .select('*')
+            .select('*, organizations!organization_id(name, logo_url)')
             .eq('email', user.email)
             .maybeSingle();
           
@@ -664,7 +664,11 @@ export default function ClockScreen() {
           <div className="flex items-center justify-between h-16">
             {/* Logo and Organization */}
             <div className="flex items-center space-x-3">
-              <AutoTimeLogo size="small" showText={false} />
+              <OrganizationLogo 
+                organizationLogoUrl={worker.organizations?.logo_url}
+                size="small" 
+                showText={false} 
+              />
               <div>
                 <h1 className="text-xl font-bold text-white">AutoTime</h1>
                 {worker.organizations?.name && (

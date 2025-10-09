@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import AutoTimeLogo from '@/components/AutoTimeLogo';
+import OrganizationLogo from '@/components/OrganizationLogo';
 
 export default function Timesheets() {
   const navigate = useNavigate();
@@ -28,6 +28,7 @@ export default function Timesheets() {
   const [savingExpenses, setSavingExpenses] = useState(false);
   const [workerHourlyRate, setWorkerHourlyRate] = useState<number>(0);
   const [organizationName, setOrganizationName] = useState<string>('');
+  const [organizationLogoUrl, setOrganizationLogoUrl] = useState<string | null>(null);
   
   // Manual entry state
   const [showManualEntry, setShowManualEntry] = useState(false);
@@ -55,7 +56,7 @@ export default function Timesheets() {
       // First get worker profile by email
       const { data: workerData, error: workerError } = await supabase
         .from('workers')
-        .select('id, hourly_rate')
+        .select('id, hourly_rate, organizations!organization_id(name, logo_url)')
         .eq('email', user.email)
         .single();
 
@@ -67,7 +68,8 @@ export default function Timesheets() {
       }
 
       setWorkerHourlyRate(workerData.hourly_rate || 0);
-      setOrganizationName('');
+      setOrganizationName(workerData.organizations?.name || '');
+      setOrganizationLogoUrl(workerData.organizations?.logo_url || null);
 
       const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
       const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
@@ -538,7 +540,11 @@ export default function Timesheets() {
               >
                 <ArrowLeft className="h-5 w-5" />
               </button>
-              <AutoTimeLogo size="small" showText={false} />
+              <OrganizationLogo 
+                organizationLogoUrl={organizationLogoUrl}
+                size="small" 
+                showText={false} 
+              />
               <div>
                 <h1 className="text-xl font-bold text-white">AutoTime</h1>
                 <p className="text-sm text-gray-300">Timesheets</p>

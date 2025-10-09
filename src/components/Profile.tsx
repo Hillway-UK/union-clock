@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { User, ArrowLeft, Clock, FileText, Lock } from 'lucide-react';
 import { toast } from 'sonner';
-import AutoTimeLogo from '@/components/AutoTimeLogo';
+import OrganizationLogo from '@/components/OrganizationLogo';
 import ChangePasswordDialog from '@/components/ChangePasswordDialog';
 
 export default function Profile() {
@@ -28,7 +28,7 @@ export default function Profile() {
 
       const { data: workerData, error } = await supabase
         .from('workers')
-        .select('*')
+        .select('*, organizations!organization_id(name, logo_url)')
         .eq('email', user.email)
         .single();
 
@@ -41,7 +41,7 @@ export default function Profile() {
 
       if (workerData) {
         setWorker(workerData);
-        setOrganizationName('');
+        setOrganizationName(workerData.organizations?.name || '');
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -64,7 +64,11 @@ export default function Profile() {
         <div className="px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <AutoTimeLogo size="small" showText={false} />
+              <OrganizationLogo 
+                organizationLogoUrl={worker?.organizations?.logo_url}
+                size="small" 
+                showText={false} 
+              />
               <div>
                 <h1 className="text-xl font-bold text-white">AutoTime</h1>
                 {organizationName && (

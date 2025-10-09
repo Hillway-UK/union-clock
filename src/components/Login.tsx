@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Loader2, AlertCircle, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import AutoTimeLogo from '@/components/AutoTimeLogo';
+import OrganizationLogo from '@/components/OrganizationLogo';
 
 const emailSchema = z.object({
   email: z.string().email('Please enter a valid email address')
@@ -22,6 +22,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [organizationLogoUrl, setOrganizationLogoUrl] = useState<string | null>(null);
   const navigate = useNavigate();
   
   // Forgot password state
@@ -225,7 +226,11 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
-          <AutoTimeLogo size="large" className="justify-center" />
+          <OrganizationLogo 
+            organizationLogoUrl={organizationLogoUrl}
+            size="large" 
+            className="justify-center" 
+          />
         </div>
         
         <div className="bg-white rounded-2xl shadow-sm p-8">
@@ -244,6 +249,18 @@ export default function Login() {
                 placeholder="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onBlur={async (e) => {
+                  const emailValue = e.target.value.trim();
+                  if (emailValue && emailValue.includes('@')) {
+                    const { data } = await supabase
+                      .from('workers')
+                      .select('organizations!organization_id(logo_url)')
+                      .eq('email', emailValue)
+                      .maybeSingle();
+                    
+                    setOrganizationLogoUrl(data?.organizations?.logo_url || null);
+                  }
+                }}
                 autoComplete="email"
                 autoCapitalize="none"
               />
