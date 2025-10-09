@@ -74,34 +74,31 @@ export default function ClockScreen() {
 
   useEffect(() => {
     const init = async () => {
-      // Load cached immediately for fast initial render
+      // Ensure worker is available in localStorage; if not, hydrate from Supabase
       const cached = localStorage.getItem('worker');
-      if (cached) {
-        setWorker(JSON.parse(cached));
-      }
-
-      // Always fetch fresh data from Supabase in background
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user?.email) {
-        const { data: workerRow, error } = await supabase
-          .from('workers')
-          .select('*, organizations!organization_id(name, logo_url)')
-          .eq('email', user.email)
-          .maybeSingle();
-        
-        if (error || !workerRow) {
-          // No worker profile; sign out to avoid redirect loops
-          await supabase.auth.signOut();
+      if (!cached) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.email) {
+          const { data: workerRow, error } = await supabase
+            .from('workers')
+            .select('*, organizations!organization_id(name, logo_url)')
+            .eq('email', user.email)
+            .maybeSingle();
+          
+          if (error || !workerRow) {
+            // No worker profile; sign out to avoid redirect loops
+            await supabase.auth.signOut();
+            navigate('/login', { replace: true });
+            return;
+          }
+          localStorage.setItem('worker', JSON.stringify(workerRow));
+          setWorker(workerRow);
+        } else {
           navigate('/login', { replace: true });
           return;
         }
-        
-        // Update with fresh data
-        localStorage.setItem('worker', JSON.stringify(workerRow));
-        setWorker(workerRow);
       } else {
-        navigate('/login', { replace: true });
-        return;
+        setWorker(JSON.parse(cached));
       }
 
       // Load initial data
