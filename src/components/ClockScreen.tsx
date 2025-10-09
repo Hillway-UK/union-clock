@@ -10,6 +10,7 @@ import OrganizationLogo from '@/components/OrganizationLogo';
 import PWAInstallDialog from '@/components/PWAInstallDialog';
 import NotificationPanel from '@/components/NotificationPanel';
 import { useWorker } from '@/contexts/WorkerContext';
+import { useUpdate } from '@/contexts/UpdateContext';
 
 interface Worker {
   id: string;
@@ -55,6 +56,7 @@ interface ExpenseType {
 export default function ClockScreen() {
   const navigate = useNavigate();
   const { worker: contextWorker, loading: workerLoading } = useWorker();
+  const { triggerUpdate } = useUpdate();
   const [worker, setWorker] = useState<Worker | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selectedJobId, setSelectedJobId] = useState('');
@@ -667,12 +669,11 @@ export default function ClockScreen() {
             {/* Navigation Buttons */}
             <div className="flex items-center space-x-2">
               <button
-                onClick={handleRefreshJobs}
-                disabled={refreshingJobs}
+                onClick={triggerUpdate}
                 className="p-2 text-white hover:bg-gray-800 rounded-lg transition-colors"
-                title="Refresh job sites"
+                title="Refresh app"
               >
-                <RefreshCw className={`h-5 w-5 ${refreshingJobs ? 'animate-spin' : ''}`} />
+                <RefreshCw className="h-5 w-5" />
               </button>
               
               <button
