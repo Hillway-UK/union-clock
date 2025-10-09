@@ -624,8 +624,7 @@ export type Database = {
           created_at: string | null
           email: string | null
           id: string
-          max_managers: number | null
-          max_workers: number | null
+          logo_url: string | null
           name: string
           phone: string | null
           stripe_customer_id: string | null
@@ -643,8 +642,7 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           id?: string
-          max_managers?: number | null
-          max_workers?: number | null
+          logo_url?: string | null
           name: string
           phone?: string | null
           stripe_customer_id?: string | null
@@ -662,8 +660,7 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           id?: string
-          max_managers?: number | null
-          max_workers?: number | null
+          logo_url?: string | null
           name?: string
           phone?: string | null
           stripe_customer_id?: string | null
@@ -716,9 +713,16 @@ export type Database = {
           active_workers: number | null
           billed: boolean | null
           created_at: string | null
+          effective_end_date: string | null
+          effective_start_date: string
           id: string
           month: string
           organization_id: string | null
+          plan_type: string | null
+          planned_number_of_managers: number | null
+          planned_number_of_workers: number | null
+          status: string
+          superseded_by: string | null
           total_cost: number | null
         }
         Insert: {
@@ -726,9 +730,16 @@ export type Database = {
           active_workers?: number | null
           billed?: boolean | null
           created_at?: string | null
+          effective_end_date?: string | null
+          effective_start_date: string
           id?: string
           month: string
           organization_id?: string | null
+          plan_type?: string | null
+          planned_number_of_managers?: number | null
+          planned_number_of_workers?: number | null
+          status?: string
+          superseded_by?: string | null
           total_cost?: number | null
         }
         Update: {
@@ -736,9 +747,16 @@ export type Database = {
           active_workers?: number | null
           billed?: boolean | null
           created_at?: string | null
+          effective_end_date?: string | null
+          effective_start_date?: string
           id?: string
           month?: string
           organization_id?: string | null
+          plan_type?: string | null
+          planned_number_of_managers?: number | null
+          planned_number_of_workers?: number | null
+          status?: string
+          superseded_by?: string | null
           total_cost?: number | null
         }
         Relationships: [
@@ -747,6 +765,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_usage_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "subscription_usage"
             referencedColumns: ["id"]
           },
         ]
@@ -873,6 +898,9 @@ export type Database = {
           organization_id: string
           phone: string | null
           photo_url: string | null
+          shift_days: number[] | null
+          shift_end: string | null
+          shift_start: string | null
           updated_at: string | null
         }
         Insert: {
@@ -891,6 +919,9 @@ export type Database = {
           organization_id: string
           phone?: string | null
           photo_url?: string | null
+          shift_days?: number[] | null
+          shift_end?: string | null
+          shift_start?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -909,6 +940,9 @@ export type Database = {
           organization_id?: string
           phone?: string | null
           photo_url?: string | null
+          shift_days?: number[] | null
+          shift_end?: string | null
+          shift_start?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -937,9 +971,51 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      can_manage_organization: {
+        Args: { target_org_id: string }
+        Returns: boolean
+      }
+      check_capacity_with_plan: {
+        Args: { org_id: string }
+        Returns: {
+          can_add_manager: boolean
+          can_add_worker: boolean
+          current_manager_count: number
+          current_worker_count: number
+          max_managers: number
+          max_workers: number
+          plan_name: string
+          planned_managers: number
+          planned_workers: number
+        }[]
+      }
       check_is_manager: {
         Args: { user_email: string }
         Returns: boolean
+      }
+      ensure_usage_row: {
+        Args: { p_org: string }
+        Returns: undefined
+      }
+      get_active_subscription_usage: {
+        Args: { p_org_id: string }
+        Returns: {
+          active_managers: number | null
+          active_workers: number | null
+          billed: boolean | null
+          created_at: string | null
+          effective_end_date: string | null
+          effective_start_date: string
+          id: string
+          month: string
+          organization_id: string | null
+          plan_type: string | null
+          planned_number_of_managers: number | null
+          planned_number_of_workers: number | null
+          status: string
+          superseded_by: string | null
+          total_cost: number | null
+        }
       }
       get_clocked_in_workers: {
         Args: Record<PropertyKey, never>
@@ -967,6 +1043,17 @@ export type Database = {
           job_name: string
           total_hours: number
           worker_name: string
+        }[]
+      }
+      get_subscription_capacity: {
+        Args: { org_id: string }
+        Returns: {
+          active_managers: number
+          active_workers: number
+          managers_available: number
+          planned_managers: number
+          planned_workers: number
+          workers_available: number
         }[]
       }
       get_total_hours_today: {
@@ -999,6 +1086,26 @@ export type Database = {
       is_super_admin_of_org: {
         Args: { org_id: string }
         Returns: boolean
+      }
+      reconcile_subscription_usage: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          new_managers: number
+          new_workers: number
+          old_managers: number
+          old_workers: number
+          org_id: string
+          org_name: string
+        }[]
+      }
+      upgrade_subscription_plan: {
+        Args: {
+          p_new_max_managers: number
+          p_new_max_workers: number
+          p_org_id: string
+          p_plan_type: string
+        }
+        Returns: string
       }
       user_is_manager_in_org: {
         Args: { check_org_id: string }
