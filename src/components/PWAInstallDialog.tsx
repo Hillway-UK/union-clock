@@ -1,7 +1,13 @@
-import { useEffect, useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Smartphone, Share, MoreVertical, Plus, Home } from "lucide-react";
+import { useEffect, useState } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Smartphone, Share, MoreVertical, Plus, Home } from 'lucide-react';
 
 interface PWAInstallDialogProps {
   open: boolean;
@@ -9,7 +15,7 @@ interface PWAInstallDialogProps {
 }
 
 export default function PWAInstallDialog({ open, onOpenChange }: PWAInstallDialogProps) {
-  const [deviceType, setDeviceType] = useState<"ios" | "android" | "other">("other");
+  const [deviceType, setDeviceType] = useState<'ios' | 'android' | 'other'>('other');
 
   useEffect(() => {
     const userAgent = navigator.userAgent.toLowerCase();
@@ -17,11 +23,11 @@ export default function PWAInstallDialog({ open, onOpenChange }: PWAInstallDialo
     const isAndroid = /android/.test(userAgent);
 
     if (isIOS) {
-      setDeviceType("ios");
+      setDeviceType('ios');
     } else if (isAndroid) {
-      setDeviceType("android");
+      setDeviceType('android');
     } else {
-      setDeviceType("other");
+      setDeviceType('other');
     }
   }, []);
 
@@ -31,21 +37,21 @@ export default function PWAInstallDialog({ open, onOpenChange }: PWAInstallDialo
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 font-heading font-extrabold">
             <Smartphone className="h-5 w-5 text-primary" />
-            Install Auto Timesheets
+            Install Pioneer Auto Timesheets
           </DialogTitle>
-          <DialogDescription>Install this app on your device for the best experience!</DialogDescription>
+          <DialogDescription>
+            Install this app on your device for the best experience!
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 mt-4">
-          {deviceType === "ios" && (
+          {deviceType === 'ios' && (
             <div className="space-y-3">
               <h3 className="font-heading font-bold text-lg">iOS Installation Steps:</h3>
-
+              
               <div className="space-y-3">
                 <div className="flex items-start gap-3 p-3 bg-secondary rounded-lg">
-                  <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center font-bold shrink-0">
-                    1
-                  </div>
+                  <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center font-bold shrink-0">1</div>
                   <div>
                     <p className="font-semibold">Open in Safari</p>
                     <p className="text-sm text-muted-foreground">Make sure you're viewing this in Safari browser</p>
@@ -53,9 +59,7 @@ export default function PWAInstallDialog({ open, onOpenChange }: PWAInstallDialo
                 </div>
 
                 <div className="flex items-start gap-3 p-3 bg-secondary rounded-lg">
-                  <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center font-bold shrink-0">
-                    2
-                  </div>
+                  <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center font-bold shrink-0">2</div>
                   <div>
                     <p className="font-semibold flex items-center gap-2">
                       Tap the Share button
@@ -66,9 +70,7 @@ export default function PWAInstallDialog({ open, onOpenChange }: PWAInstallDialo
                 </div>
 
                 <div className="flex items-start gap-3 p-3 bg-secondary rounded-lg">
-                  <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center font-bold shrink-0">
-                    3
-                  </div>
+                  <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center font-bold shrink-0">3</div>
                   <div>
                     <p className="font-semibold flex items-center gap-2">
                       Select "Add to Home Screen"
@@ -79,9 +81,7 @@ export default function PWAInstallDialog({ open, onOpenChange }: PWAInstallDialo
                 </div>
 
                 <div className="flex items-start gap-3 p-3 bg-secondary rounded-lg">
-                  <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center font-bold shrink-0">
-                    4
-                  </div>
+                  <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center font-bold shrink-0">4</div>
                   <div>
                     <p className="font-semibold">Confirm Installation</p>
                     <p className="text-sm text-muted-foreground">Tap "Add" to install to home screen</p>
@@ -91,15 +91,13 @@ export default function PWAInstallDialog({ open, onOpenChange }: PWAInstallDialo
             </div>
           )}
 
-          {deviceType === "android" && (
+          {deviceType === 'android' && (
             <div className="space-y-3">
               <h3 className="font-heading font-bold text-lg">Android Installation Steps:</h3>
-
+              
               <div className="space-y-3">
                 <div className="flex items-start gap-3 p-3 bg-secondary rounded-lg">
-                  <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center font-bold shrink-0">
-                    1
-                  </div>
+                  <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center font-bold shrink-0">1</div>
                   <div>
                     <p className="font-semibold">Open in Chrome</p>
                     <p className="text-sm text-muted-foreground">Make sure you're viewing this in Chrome browser</p>
@@ -107,9 +105,7 @@ export default function PWAInstallDialog({ open, onOpenChange }: PWAInstallDialo
                 </div>
 
                 <div className="flex items-start gap-3 p-3 bg-secondary rounded-lg">
-                  <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center font-bold shrink-0">
-                    2
-                  </div>
+                  <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center font-bold shrink-0">2</div>
                   <div>
                     <p className="font-semibold flex items-center gap-2">
                       Tap the three-dot menu
@@ -120,9 +116,7 @@ export default function PWAInstallDialog({ open, onOpenChange }: PWAInstallDialo
                 </div>
 
                 <div className="flex items-start gap-3 p-3 bg-secondary rounded-lg">
-                  <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center font-bold shrink-0">
-                    3
-                  </div>
+                  <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center font-bold shrink-0">3</div>
                   <div>
                     <p className="font-semibold flex items-center gap-2">
                       Select "Add to Home screen"
@@ -133,26 +127,21 @@ export default function PWAInstallDialog({ open, onOpenChange }: PWAInstallDialo
                 </div>
 
                 <div className="flex items-start gap-3 p-3 bg-secondary rounded-lg">
-                  <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center font-bold shrink-0">
-                    4
-                  </div>
+                  <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center font-bold shrink-0">4</div>
                   <div>
                     <p className="font-semibold">Confirm Installation</p>
-                    <p className="text-sm text-muted-foreground">
-                      Tap "Add" and the app will appear on your home screen
-                    </p>
+                    <p className="text-sm text-muted-foreground">Tap "Add" and the app will appear on your home screen</p>
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {deviceType === "other" && (
+          {deviceType === 'other' && (
             <div className="space-y-3">
               <h3 className="font-heading font-bold text-lg">Installation Steps:</h3>
               <p className="text-sm text-muted-foreground">
-                To install this app, use your browser's "Add to Home Screen" or "Install App" option, typically found in
-                the browser menu.
+                To install this app, use your browser's "Add to Home Screen" or "Install App" option, typically found in the browser menu.
               </p>
             </div>
           )}

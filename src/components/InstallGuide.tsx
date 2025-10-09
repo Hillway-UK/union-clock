@@ -107,7 +107,7 @@ export default function InstallGuide() {
                         <Home className="h-4 w-4" />
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        Auto Timesheets is now installed on your home screen like a native app
+                        Pioneer Auto Timesheets is now installed on your home screen like a native app
                       </p>
                     </div>
                   </div>
