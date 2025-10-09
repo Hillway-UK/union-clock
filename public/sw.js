@@ -1,4 +1,4 @@
-const VERSION = '1.0.1';
+const VERSION = '1.0.2';
 const CACHE_NAME = `autotime-v${VERSION}`;
 const PRECACHE_URLS = [
   '/',
@@ -92,6 +92,26 @@ async function cacheFirst(request, cacheName) {
   return response;
 }
 
+// StaleWhileRevalidate strategy (for logos - instant load, background update)
+async function staleWhileRevalidate(request, cacheName) {
+  const cached = await caches.match(request);
+  
+  // Always fetch in background to update cache
+  const fetchPromise = fetch(request).then(async response => {
+    if (response && response.status === 200) {
+      const cache = await caches.open(cacheName);
+      cache.put(request, response.clone());
+    }
+    return response;
+  }).catch(err => {
+    console.log('[SW] Fetch failed for stale-while-revalidate:', err);
+    return cached;
+  });
+
+  // Return cached immediately if available, otherwise wait for fetch
+  return cached || fetchPromise;
+}
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
@@ -105,9 +125,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // NetworkFirst for Supabase Storage (organization logos)
+  // StaleWhileRevalidate for Supabase Storage (organization logos - instant display)
   if (url.hostname.includes('supabase.co') && url.pathname.includes('/storage/')) {
-    event.respondWith(networkFirst(request, CACHE_NAME, 300000)); // 5min TTL
+    event.respondWith(staleWhileRevalidate(request, CACHE_NAME));
     return;
   }
 

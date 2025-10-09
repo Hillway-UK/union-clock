@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import OrganizationLogo from '@/components/OrganizationLogo';
 import PWAInstallDialog from '@/components/PWAInstallDialog';
 import NotificationPanel from '@/components/NotificationPanel';
+import { useWorker } from '@/contexts/WorkerContext';
 
 interface Worker {
   id: string;
@@ -53,6 +54,7 @@ interface ExpenseType {
 
 export default function ClockScreen() {
   const navigate = useNavigate();
+  const { worker: contextWorker, loading: workerLoading } = useWorker();
   const [worker, setWorker] = useState<Worker | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selectedJobId, setSelectedJobId] = useState('');
@@ -72,72 +74,17 @@ export default function ClockScreen() {
   const [completedClockEntry, setCompletedClockEntry] = useState<any>(null);
   const [showPWADialog, setShowPWADialog] = useState(false);
 
+  // Set worker from context
+  useEffect(() => {
+    if (contextWorker) {
+      setWorker(contextWorker as unknown as Worker);
+    }
+  }, [contextWorker]);
+
   useEffect(() => {
     const init = async () => {
-      // Always fetch fresh worker data from Supabase
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.email) {
-        navigate('/login', { replace: true });
-        return;
-      }
-
-      let workerRow;
-      const { data: workerData, error } = await supabase
-        .from('workers')
-        .select('*, organizations!organization_id(name, logo_url)')
-        .eq('email', user.email)
-        .maybeSingle();
-      
-      if (error?.code === 'PGRST201' || error?.message?.includes('more than one relationship')) {
-        console.warn('⚠️ PGRST201 embed error, using fallback fetch');
-        
-        // Fallback: fetch worker and org separately
-        const { data: worker, error: workerError } = await supabase
-          .from('workers')
-          .select('*')
-          .eq('email', user.email)
-          .maybeSingle();
-        
-        if (workerError || !worker) {
-          console.error('Worker fetch error:', workerError);
-          await supabase.auth.signOut();
-          navigate('/login', { replace: true });
-          return;
-        }
-        
-        if (!worker.is_active) {
-          console.error('Worker is inactive');
-          await supabase.auth.signOut();
-          navigate('/login', { replace: true });
-          return;
-        }
-        
-        const { data: org } = await supabase
-          .from('organizations')
-          .select('name, logo_url')
-          .eq('id', worker.organization_id)
-          .maybeSingle();
-        
-        workerRow = { ...worker, organizations: org || { name: '', logo_url: null } };
-      } else if (error || !workerData) {
-        console.error('Worker fetch error:', error);
-        await supabase.auth.signOut();
-        navigate('/login', { replace: true });
-        return;
-      } else {
-        workerRow = workerData;
-      }
-      
-      if (!workerRow.is_active) {
-        console.error('Worker is inactive');
-        await supabase.auth.signOut();
-        navigate('/login', { replace: true });
-        return;
-      }
-      
-      // Update localStorage with fresh data (for backward compatibility)
-      localStorage.setItem('worker', JSON.stringify(workerRow));
-      setWorker(workerRow);
+      if (!contextWorker) return;
+      if (!contextWorker) return;
 
       // Load initial data
       loadJobs();
@@ -163,7 +110,7 @@ export default function ClockScreen() {
     };
 
     init();
-  }, [navigate]);
+  }, [contextWorker, navigate]);
 
 
   // Real-time jobs listener

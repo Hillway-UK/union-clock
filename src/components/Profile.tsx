@@ -5,80 +5,24 @@ import { User, ArrowLeft, Clock, FileText, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import OrganizationLogo from '@/components/OrganizationLogo';
 import ChangePasswordDialog from '@/components/ChangePasswordDialog';
+import { useWorker } from '@/contexts/WorkerContext';
 
 export default function Profile() {
   const navigate = useNavigate();
+  const { worker: contextWorker, loading: workerLoading } = useWorker();
   const [worker, setWorker] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
   const [organizationName, setOrganizationName] = useState<string>('');
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
 
+  // Set worker from context
   useEffect(() => {
-    fetchWorkerProfile();
-  }, []);
-
-  const fetchWorkerProfile = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.email) {
-        console.log('No user email found');
-        setLoading(false);
-        return;
-      }
-
-      let workerData;
-      const { data: workerResult, error } = await supabase
-        .from('workers')
-        .select('*, organizations!organization_id(name, logo_url)')
-        .eq('email', user.email)
-        .single();
-
-      if (error?.code === 'PGRST201' || error?.message?.includes('more than one relationship')) {
-        console.warn('⚠️ PGRST201 embed error, using fallback fetch');
-        
-        // Fallback: fetch worker and org separately
-        const { data: worker, error: workerError } = await supabase
-          .from('workers')
-          .select('*')
-          .eq('email', user.email)
-          .single();
-        
-        if (workerError || !worker) {
-          console.error('Error fetching worker:', workerError);
-          toast.error('Failed to load worker profile');
-          setLoading(false);
-          return;
-        }
-        
-        const { data: org } = await supabase
-          .from('organizations')
-          .select('name, logo_url')
-          .eq('id', worker.organization_id)
-          .maybeSingle();
-        
-        workerData = { ...worker, organizations: org || { name: '', logo_url: null } };
-      } else if (error) {
-        console.error('Error fetching worker:', error);
-        toast.error('Failed to load worker profile');
-        setLoading(false);
-        return;
-      } else {
-        workerData = workerResult;
-      }
-
-      if (workerData) {
-        setWorker(workerData);
-        setOrganizationName(workerData.organizations?.name || '');
-      }
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-      toast.error('Failed to load profile');
-    } finally {
-      setLoading(false);
+    if (contextWorker) {
+      setWorker(contextWorker);
+      setOrganizationName(contextWorker.organizations?.name || '');
     }
-  };
+  }, [contextWorker]);
 
-  if (loading) return (
+  if (workerLoading) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="animate-pulse">Loading...</div>
     </div>

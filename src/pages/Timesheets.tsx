@@ -10,9 +10,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import OrganizationLogo from '@/components/OrganizationLogo';
+import { useWorker } from '@/contexts/WorkerContext';
 
 export default function Timesheets() {
   const navigate = useNavigate();
+  const { worker: contextWorker, loading: workerLoading } = useWorker();
   const [entries, setEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentWeek, setCurrentWeek] = useState(new Date());
@@ -43,65 +45,28 @@ export default function Timesheets() {
   const [submittingManual, setSubmittingManual] = useState(false);
   const [worker, setWorker] = useState<any>(null);
 
+  // Set worker data from context
+  useEffect(() => {
+    if (contextWorker) {
+      setWorker(contextWorker);
+      setWorkerHourlyRate(contextWorker.hourly_rate || 0);
+      setOrganizationName(contextWorker.organizations?.name || '');
+      setOrganizationLogoUrl(contextWorker.organizations?.logo_url || null);
+    }
+  }, [contextWorker]);
+
   // Fetch timesheet entries for current week
   const fetchEntries = async () => {
+    if (!contextWorker) {
+      setLoading(false);
+      return;
+    }
+
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.email) {
-        console.log('No authenticated user found');
-        setLoading(false);
-        return;
-      }
-
-      // First get worker profile by email
-      let workerData;
-      const { data: workerResult, error: workerError } = await supabase
-        .from('workers')
-        .select('id, hourly_rate, organizations!organization_id(name, logo_url)')
-        .eq('email', user.email)
-        .single();
-
-      if (workerError?.code === 'PGRST201' || workerError?.message?.includes('more than one relationship')) {
-        console.warn('⚠️ PGRST201 embed error, using fallback fetch');
-        
-        // Fallback: fetch worker and org separately
-        const { data: worker, error: fallbackError } = await supabase
-          .from('workers')
-          .select('id, hourly_rate, organization_id')
-          .eq('email', user.email)
-          .single();
-        
-        if (fallbackError || !worker) {
-          console.log('Worker not found for email:', user.email);
-          toast.error('Worker profile not found');
-          setLoading(false);
-          return;
-        }
-        
-        const { data: org } = await supabase
-          .from('organizations')
-          .select('name, logo_url')
-          .eq('id', worker.organization_id)
-          .maybeSingle();
-        
-        workerData = { ...worker, organizations: org || { name: '', logo_url: null } };
-      } else if (workerError || !workerResult) {
-        console.log('Worker not found for email:', user.email);
-        toast.error('Worker profile not found');
-        setLoading(false);
-        return;
-      } else {
-        workerData = workerResult;
-      }
-
-      setWorkerHourlyRate(workerData.hourly_rate || 0);
-      setOrganizationName(workerData.organizations?.name || '');
-      setOrganizationLogoUrl(workerData.organizations?.logo_url || null);
-
       const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
       const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
 
-      console.log('Fetching entries for worker:', workerData.id, 'week:', weekStart, 'to', weekEnd);
+      console.log('Fetching entries for worker:', contextWorker.id, 'week:', weekStart, 'to', weekEnd);
 
       const { data, error } = await supabase
         .from('clock_entries')
@@ -110,7 +75,7 @@ export default function Timesheets() {
           jobs (name, code),
           additional_costs (amount, description)
         `)
-        .eq('worker_id', workerData.id)
+        .eq('worker_id', contextWorker.id)
         .gte('clock_in', weekStart.toISOString())
         .lte('clock_in', weekEnd.toISOString())
         .order('clock_in', { ascending: false });
