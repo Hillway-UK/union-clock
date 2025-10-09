@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { format, startOfWeek, endOfWeek, differenceInMinutes, parseISO, addDays } from 'date-fns';
+import { formatInTimeZone, toZonedTime } from 'date-fns-tz';
+
+const UK_TIMEZONE = 'Europe/London';
 import { Calendar, Clock, Edit2, Plus, ChevronLeft, ChevronRight, AlertCircle, DollarSign, ArrowLeft, Construction, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -257,13 +260,29 @@ export default function Timesheets() {
         return;
       }
       
+      // Convert datetime-local input (UK time) to proper ISO timestamp
+      let requestedClockIn = selectedEntry.clock_in;
+      let requestedClockOut = selectedEntry.clock_out;
+      
+      if (newClockIn) {
+        // Parse the datetime-local string as UK time
+        const ukDate = new Date(newClockIn);
+        // Convert to UK timezone-aware timestamp
+        requestedClockIn = formatInTimeZone(ukDate, UK_TIMEZONE, "yyyy-MM-dd'T'HH:mm:ssXXX");
+      }
+      
+      if (newClockOut) {
+        const ukDate = new Date(newClockOut);
+        requestedClockOut = formatInTimeZone(ukDate, UK_TIMEZONE, "yyyy-MM-dd'T'HH:mm:ssXXX");
+      }
+      
       const { error } = await supabase
         .from('time_amendments')
         .insert({
           worker_id: workerData.id,
           clock_entry_id: selectedEntry.id,
-          requested_clock_in: newClockIn || selectedEntry.clock_in,
-          requested_clock_out: newClockOut || selectedEntry.clock_out,
+          requested_clock_in: requestedClockIn,
+          requested_clock_out: requestedClockOut,
           reason: amendmentReason,
           status: 'pending'
         });
@@ -471,6 +490,19 @@ export default function Timesheets() {
   // Dialog helper functions
   const openAmendmentDialog = (entry: any) => {
     setSelectedEntry(entry);
+    
+    // Convert existing times to UK timezone for display in datetime-local input
+    if (entry.clock_in) {
+      const ukClockIn = toZonedTime(entry.clock_in, UK_TIMEZONE);
+      // Format as datetime-local string (YYYY-MM-DDTHH:mm)
+      setNewClockIn(format(ukClockIn, "yyyy-MM-dd'T'HH:mm"));
+    }
+    
+    if (entry.clock_out) {
+      const ukClockOut = toZonedTime(entry.clock_out, UK_TIMEZONE);
+      setNewClockOut(format(ukClockOut, "yyyy-MM-dd'T'HH:mm"));
+    }
+    
     setShowAmendmentDialog(true);
   };
   
@@ -695,7 +727,7 @@ export default function Timesheets() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium">New Clock In Time</label>
+                <label className="text-sm font-medium">New Clock In Time (UK Time)</label>
                 <input
                   type="datetime-local"
                   value={newClockIn}
@@ -704,7 +736,7 @@ export default function Timesheets() {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium">New Clock Out Time</label>
+                <label className="text-sm font-medium">New Clock Out Time (UK Time)</label>
                 <input
                   type="datetime-local"
                   value={newClockOut}
@@ -713,6 +745,9 @@ export default function Timesheets() {
                 />
               </div>
             </div>
+            <p className="text-xs text-gray-500">
+              All times are in UK timezone (Europe/London)
+            </p>
             <div className="flex gap-2 pt-4">
               <button
                 onClick={() => setShowAmendmentDialog(false)}
