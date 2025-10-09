@@ -160,6 +160,7 @@ async function getScheduledWorkers(supabase: any, siteDate: Date, dayOfWeek: num
   // For 7-15 shift, weekdays only
   const weekdays = [1, 2, 3, 4, 5];
   if (!weekdays.includes(dayOfWeek)) {
+    console.log(`Not a weekday (${dayOfWeek}), returning empty worker list`);
     return [];
   }
 
@@ -173,6 +174,7 @@ async function getScheduledWorkers(supabase: any, siteDate: Date, dayOfWeek: num
     return [];
   }
 
+  console.log(`Fetched ${workers?.length || 0} active workers`);
   return workers || [];
 }
 
@@ -265,21 +267,29 @@ async function handleAutoClockOut(
 ): Promise<number> {
   let performed = 0;
   
-  console.log('Processing auto clock-out at 17:00');
+  console.log(`\n========== AUTO CLOCK-OUT at 17:00 ==========`);
+  console.log(`Processing ${workers.length} workers for date: ${siteDate.toISOString().split('T')[0]}`);
 
   for (const worker of workers) {
+    console.log(`\n--- Worker: ${worker.name} (${worker.id}) ---`);
+    
     // Check if audit already exists (idempotency)
     const auditExists = await checkAuditExists(supabase, worker.id, siteDate);
     if (auditExists) {
-      console.log(`Auto clock-out audit already exists for ${worker.name} on ${siteDate.toISOString()}`);
+      console.log(`✓ Audit already exists - skipping`);
       continue;
     }
 
+    // Get today's entry BEFORE guard checks (for logging)
+    const entry = await getTodayEntry(supabase, worker.id, siteDate);
+    console.log(`Clock entry:`, entry ? `Found (${entry.id}, clocked_in: ${entry.clock_in}, clocked_out: ${entry.clock_out})` : 'NOT FOUND');
+    
     // Run guard checks
     const checks = await runGuardChecks(supabase, worker.id, siteDate);
+    console.log(`Guard checks: canAutoClockOut=${checks.canAutoClockOut}, reason=${checks.reason}`);
     
     if (!checks.canAutoClockOut) {
-      console.log(`Cannot auto clock-out ${worker.name}: ${checks.reason}`);
+      console.log(`❌ Cannot auto clock-out: ${checks.reason}`);
       
       // Log audit with reason
       await createAudit(supabase, worker.id, siteDate, false, checks.reason);
@@ -298,8 +308,7 @@ async function handleAutoClockOut(
       continue;
     }
 
-    // Get today's entry to get clock_in time and job_id
-    const entry = await getTodayEntry(supabase, worker.id, siteDate);
+    // Get today's entry again to perform clock-out (already fetched above, but keeping for clarity)
     if (!entry) {
       console.error(`No clock entry found for ${worker.name}, cannot auto clock-out`);
       await createAudit(supabase, worker.id, siteDate, false, 'NO_CLOCK_IN');
@@ -312,6 +321,8 @@ async function handleAutoClockOut(
 
     const clockInTime = new Date(entry.clock_in);
     const totalHours = (clockOutTime.getTime() - clockInTime.getTime()) / (1000 * 60 * 60);
+
+    console.log(`Performing auto clock-out: totalHours=${totalHours.toFixed(2)}`);
 
     const { error: updateError } = await supabase
       .from('clock_entries')
@@ -351,9 +362,10 @@ async function handleAutoClockOut(
     await cancelNotifications(supabase, worker.id, siteDate, 'clock_out_');
 
     performed++;
-    console.log(`Successfully auto clocked-out ${worker.name}`);
+    console.log(`✅ Successfully auto clocked-out ${worker.name}`);
   }
 
+  console.log(`\n========== AUTO CLOCK-OUT COMPLETE: ${performed} performed ==========\n`);
   return performed;
 }
 
@@ -365,11 +377,13 @@ async function runGuardChecks(supabase: any, workerId: string, shiftDate: Date):
   // 1. Check if clocked in today
   const entry = await getTodayEntry(supabase, workerId, shiftDate);
   if (!entry) {
+    console.log(`  Guard: NO_CLOCK_IN - no entry found for date`);
     return { canAutoClockOut: false, reason: 'NO_CLOCK_IN' };
   }
 
   // 2. Check if already clocked out
   if (entry.clock_out) {
+    console.log(`  Guard: ALREADY_CLOCKED_OUT - clock_out exists: ${entry.clock_out}`);
     return { canAutoClockOut: false, reason: 'ALREADY_CLOCKED_OUT' };
   }
 
@@ -377,21 +391,26 @@ async function runGuardChecks(supabase: any, workerId: string, shiftDate: Date):
   const dayOfWeek = shiftDate.getDay();
   const weekdays = [1, 2, 3, 4, 5];
   if (!weekdays.includes(dayOfWeek)) {
+    console.log(`  Guard: NO_SHIFT - not a weekday (${dayOfWeek})`);
     return { canAutoClockOut: false, reason: 'NO_SHIFT' };
   }
 
   // 4. Get/create counter record
   const month = shiftDate.toISOString().slice(0, 7); // YYYY-MM
   const counter = await getOrCreateCounter(supabase, workerId, month);
+  console.log(`  Guard: Counter check - monthly: ${counter.count_monthly}/3`);
 
   // 5. Check monthly cap (≤3)
   if (counter.count_monthly >= 3) {
+    console.log(`  Guard: CAP_MONTH - monthly limit reached (${counter.count_monthly})`);
     return { canAutoClockOut: false, reason: 'CAP_MONTH' };
   }
 
   // 6. Check rolling 14-day cap (≤2)
   const rolling14Count = await getRolling14DayCount(supabase, workerId, shiftDate);
+  console.log(`  Guard: Rolling 14-day check - count: ${rolling14Count}/2`);
   if (rolling14Count >= 2) {
+    console.log(`  Guard: CAP_ROLLING14 - rolling 14-day limit reached (${rolling14Count})`);
     return { canAutoClockOut: false, reason: 'CAP_ROLLING14' };
   }
 
@@ -404,10 +423,12 @@ async function runGuardChecks(supabase: any, workerId: string, shiftDate: Date):
     const yesterdayDOW = yesterday.getDay();
     // Only block if yesterday was also a weekday (consecutive workday)
     if (weekdays.includes(yesterdayDOW)) {
+      console.log(`  Guard: CONSECUTIVE_BLOCK - auto clocked-out yesterday (${yesterday.toISOString().split('T')[0]})`);
       return { canAutoClockOut: false, reason: 'CONSECUTIVE_BLOCK' };
     }
   }
 
+  console.log(`  Guard: OK - all checks passed`);
   return { canAutoClockOut: true, reason: 'OK' };
 }
 
@@ -534,18 +555,16 @@ async function createAudit(
 // ============================================================================
 
 async function getTodayEntry(supabase: any, workerId: string, siteDate: Date): Promise<ClockEntry | null> {
-  const todayStart = new Date(siteDate);
-  todayStart.setHours(0, 0, 0, 0);
+  // Extract date-only string (YYYY-MM-DD) to avoid timezone issues
+  const dateOnly = siteDate.toISOString().split('T')[0];
   
-  const todayEnd = new Date(siteDate);
-  todayEnd.setHours(23, 59, 59, 999);
-
+  // Query for entries on this date (comparing dates in UTC)
   const { data } = await supabase
     .from('clock_entries')
     .select('id, clock_in, clock_out, job_id')
     .eq('worker_id', workerId)
-    .gte('clock_in', todayStart.toISOString())
-    .lte('clock_in', todayEnd.toISOString())
+    .gte('clock_in', `${dateOnly}T00:00:00.000Z`)
+    .lt('clock_in', `${dateOnly}T23:59:59.999Z`)
     .order('clock_in', { ascending: false })
     .limit(1)
     .maybeSingle();
