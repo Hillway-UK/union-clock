@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 import { toast } from 'sonner';
+import { notifyUpdateAvailable } from './contexts/UpdateContext';
 
 // Register service worker with update detection
 if ('serviceWorker' in navigator) {
@@ -30,17 +31,21 @@ if ('serviceWorker' in navigator) {
               // New version available
               console.log('[App] New SW installed, showing update prompt');
               
+              // Show toast notification
               toast('✨ Update Available', {
                 description: 'A new version with updated logos is ready.',
                 duration: Infinity,
                 action: {
                   label: 'Refresh',
                   onClick: () => {
-                    console.log('[App] User clicked refresh');
+                    console.log('[App] User clicked refresh from toast');
                     newWorker.postMessage('SKIP_WAITING');
                   }
                 },
               });
+
+              // Notify UpdateContext to show persistent banner
+              notifyUpdateAvailable(newWorker);
             }
           });
         });

@@ -3,6 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { WorkerProvider } from "./contexts/WorkerContext";
+import { UpdateProvider, setUpdateCallback } from "./contexts/UpdateContext";
+import { UpdateBanner } from "./components/UpdateBanner";
 import Login from "./components/Login";
 import ResetPassword from "./components/ResetPassword";
 import ClockScreen from "./components/ClockScreen";
@@ -17,12 +19,18 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <div className="max-w-md mx-auto min-h-screen bg-background">
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <WorkerProvider>
-          <Routes>
+    <UpdateProvider onUpdateAvailable={(available, sw) => {
+      setUpdateCallback((newSw) => {
+        console.log('[App] Update callback triggered');
+      });
+    }}>
+      <div className="max-w-md mx-auto min-h-screen bg-background">
+        <UpdateBanner />
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <WorkerProvider>
+            <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/reset-password" element={<ResetPassword />} />
@@ -60,10 +68,11 @@ const App = () => (
             />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
-          </Routes>
-        </WorkerProvider>
-      </BrowserRouter>
-    </div>
+            </Routes>
+          </WorkerProvider>
+        </BrowserRouter>
+      </div>
+    </UpdateProvider>
   </QueryClientProvider>
 );
 
