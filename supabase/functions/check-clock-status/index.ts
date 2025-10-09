@@ -100,7 +100,12 @@ serve(async (req) => {
     let actionsPerformed = 0;
 
     // Route to appropriate handler based on time
-    const reminderTimes = ['06:55', '07:00', '07:15', '15:00', '15:30', '16:00', '17:00'];
+    const reminderTimes = [
+      '06:55', '07:00', '07:15', 
+      '15:00', '15:30', '16:00', 
+      '17:00', '17:01', '17:02', '17:03', '17:04', 
+      '17:05', '17:06', '17:07', '17:08', '17:09', '17:10'
+    ];
     
     if (!reminderTimes.includes(timeHHmm)) {
       console.log(`Current UK time ${timeHHmm} not in reminder schedule, exiting`);
@@ -124,8 +129,9 @@ serve(async (req) => {
       actionsPerformed += await handleClockOutReminders(supabase, timeHHmm, siteDate, workers);
     }
     
-    // Handle auto clock-out at 17:00 UK time
-    else if (timeHHmm === '17:00') {
+    // Handle auto clock-out between 17:00-17:10 UK time
+    else if (timeHHmm >= '17:00' && timeHHmm <= '17:10') {
+      console.log(`Running auto clock-out (${timeHHmm})`);
       actionsPerformed += await handleAutoClockOut(supabase, siteDate, workers);
     }
 
