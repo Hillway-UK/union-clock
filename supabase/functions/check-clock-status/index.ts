@@ -42,6 +42,9 @@ interface Worker {
   name: string;
   email: string;
   organization_id: string;
+  shift_start: string;
+  shift_end: string;
+  shift_days: number[];
 }
 
 interface GuardResult {
@@ -99,48 +102,34 @@ serve(async (req) => {
 
     let actionsPerformed = 0;
 
-    // Route to appropriate handler based on time
-    const reminderTimes = [
-      '06:55', '07:00', '07:15', 
-      '15:00', '15:30', '16:00', 
-      '17:00', '17:01', '17:02', '17:03', '17:04', 
-      '17:05', '17:06', '17:07', '17:08', '17:09', '17:10'
-    ];
-    
-    if (!reminderTimes.includes(timeHHmm)) {
-      console.log(`Current UK time ${timeHHmm} not in reminder schedule, exiting`);
-      return new Response(JSON.stringify({ message: 'Not a scheduled time' }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Get scheduled workers (7-15 shift, Mon-Fri)
-    const workers = await getScheduledWorkers(supabase, siteDate, dayOfWeek);
-    console.log(`Found ${workers.length} workers scheduled for 7-15 shift`);
-
-    // Handle clock-in reminders
-    if (['06:55', '07:00', '07:15'].includes(timeHHmm)) {
-      actionsPerformed += await handleClockInReminders(supabase, timeHHmm, siteDate, workers);
+    // 1. Check for clock-in reminders (5min before, exact, 15min after shift_start)
+    const clockInWorkers = await getWorkersForClockInReminder(supabase, timeHHmm, dayOfWeek);
+    if (clockInWorkers.length > 0) {
+      console.log(`Found ${clockInWorkers.length} workers for clock-in reminder at ${timeHHmm}`);
+      actionsPerformed += await handleClockInReminders(supabase, timeHHmm, siteDate, clockInWorkers);
     }
     
-    // Handle clock-out reminders
-    else if (['15:00', '15:30', '16:00'].includes(timeHHmm)) {
-      actionsPerformed += await handleClockOutReminders(supabase, timeHHmm, siteDate, workers);
+    // 2. Check for clock-out reminders (exact, 15min after, 30min after shift_end)
+    const clockOutWorkers = await getWorkersForClockOutReminder(supabase, timeHHmm, dayOfWeek);
+    if (clockOutWorkers.length > 0) {
+      console.log(`Found ${clockOutWorkers.length} workers for clock-out reminder at ${timeHHmm}`);
+      actionsPerformed += await handleClockOutReminders(supabase, timeHHmm, siteDate, clockOutWorkers);
     }
     
-    // Handle auto clock-out between 17:00-17:10 UK time
-    else if (timeHHmm >= '17:00' && timeHHmm <= '17:10') {
-      console.log(`Running auto clock-out (${timeHHmm})`);
-      actionsPerformed += await handleAutoClockOut(supabase, siteDate, workers);
+    // 3. Check for auto-clockout (2hr to 2hr10min after shift_end)
+    const autoClockoutWorkers = await getWorkersForAutoClockout(supabase, timeHHmm, dayOfWeek);
+    if (autoClockoutWorkers.length > 0) {
+      console.log(`Found ${autoClockoutWorkers.length} workers in auto-clockout window at ${timeHHmm}`);
+      actionsPerformed += await handleAutoClockOut(supabase, timeHHmm, siteDate, autoClockoutWorkers);
     }
 
-    console.log(`Check completed. Actions performed: ${actionsPerformed}`);
+    // Log even if no actions (helps debugging)
+    console.log(`Check completed at ${timeHHmm}. Actions performed: ${actionsPerformed}`);
     
     return new Response(JSON.stringify({ 
       message: 'Check completed',
       actionsPerformed,
-      timestamp: now.toISOString()
+      timestamp: new Date().toISOString()
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -159,30 +148,107 @@ serve(async (req) => {
 });
 
 // ============================================================================
-// Helper Functions
+// Dynamic Worker Query Functions
 // ============================================================================
 
-async function getScheduledWorkers(supabase: any, siteDate: Date, dayOfWeek: number): Promise<Worker[]> {
-  // For 7-15 shift, weekdays only
-  const weekdays = [1, 2, 3, 4, 5];
-  if (!weekdays.includes(dayOfWeek)) {
-    console.log(`Not a weekday (${dayOfWeek}), returning empty worker list`);
-    return [];
-  }
-
+async function getWorkersForClockInReminder(supabase: any, currentTime: string, dayOfWeek: number): Promise<Worker[]> {
+  // Parse current time (e.g., "06:55" -> minutes since midnight)
+  const [currentHour, currentMin] = currentTime.split(':').map(Number);
+  const currentMinutes = currentHour * 60 + currentMin;
+  
   const { data: workers, error } = await supabase
     .from('workers')
-    .select('id, name, email, organization_id')
+    .select('id, name, email, organization_id, shift_start, shift_end, shift_days')
     .eq('is_active', true);
-
-  if (error) {
+  
+  if (error || !workers) {
     console.error('Error fetching workers:', error);
     return [];
   }
-
-  console.log(`Fetched ${workers?.length || 0} active workers`);
-  return workers || [];
+  
+  // Filter workers whose shift_start matches one of:
+  // - currentTime + 5min = shift_start (reminder 5min before)
+  // - currentTime = shift_start (exact time)
+  // - currentTime - 15min = shift_start (reminder 15min after)
+  
+  return workers.filter((w: Worker) => {
+    if (!w.shift_days?.includes(dayOfWeek)) return false;
+    if (!w.shift_start) return false;
+    
+    const [shiftHour, shiftMin] = w.shift_start.split(':').map(Number);
+    const shiftMinutes = shiftHour * 60 + shiftMin;
+    
+    // Check if current time matches any reminder time
+    const diff = currentMinutes - shiftMinutes;
+    return diff === -5 || diff === 0 || diff === 15;
+  });
 }
+
+async function getWorkersForClockOutReminder(supabase: any, currentTime: string, dayOfWeek: number): Promise<Worker[]> {
+  // Parse current time
+  const [currentHour, currentMin] = currentTime.split(':').map(Number);
+  const currentMinutes = currentHour * 60 + currentMin;
+  
+  const { data: workers, error } = await supabase
+    .from('workers')
+    .select('id, name, email, organization_id, shift_start, shift_end, shift_days')
+    .eq('is_active', true);
+  
+  if (error || !workers) {
+    console.error('Error fetching workers:', error);
+    return [];
+  }
+  
+  // Filter workers whose shift_end matches:
+  // - exact, +15min, +30min
+  
+  return workers.filter((w: Worker) => {
+    if (!w.shift_days?.includes(dayOfWeek)) return false;
+    if (!w.shift_end) return false;
+    
+    const [shiftHour, shiftMin] = w.shift_end.split(':').map(Number);
+    const shiftMinutes = shiftHour * 60 + shiftMin;
+    
+    const diff = currentMinutes - shiftMinutes;
+    return diff === 0 || diff === 15 || diff === 30;
+  });
+}
+
+async function getWorkersForAutoClockout(supabase: any, currentTime: string, dayOfWeek: number): Promise<Worker[]> {
+  // Parse current time
+  const [currentHour, currentMin] = currentTime.split(':').map(Number);
+  const currentMinutes = currentHour * 60 + currentMin;
+  
+  const { data: workers, error } = await supabase
+    .from('workers')
+    .select('id, name, email, organization_id, shift_start, shift_end, shift_days')
+    .eq('is_active', true);
+  
+  if (error || !workers) {
+    console.error('Error fetching workers:', error);
+    return [];
+  }
+  
+  // Filter workers whose shift_end + 2hr to +2hr10min = current time
+  
+  return workers.filter((w: Worker) => {
+    if (!w.shift_days?.includes(dayOfWeek)) return false;
+    if (!w.shift_end) return false;
+    
+    const [shiftHour, shiftMin] = w.shift_end.split(':').map(Number);
+    const shiftEndMinutes = shiftHour * 60 + shiftMin;
+    
+    // Auto-clockout window: shift_end + 2hr (120min) to +2hr10min (130min)
+    const autoClockoutStart = shiftEndMinutes + 120;
+    const autoClockoutEnd = shiftEndMinutes + 130;
+    
+    return currentMinutes >= autoClockoutStart && currentMinutes <= autoClockoutEnd;
+  });
+}
+
+// ============================================================================
+// Handler Functions
+// ============================================================================
 
 async function handleClockInReminders(
   supabase: any, 
@@ -191,11 +257,12 @@ async function handleClockInReminders(
   workers: Worker[]
 ): Promise<number> {
   let sent = 0;
-  const notifType = `clock_in_${currentTime.replace(':', '')}`;
   
   console.log(`Processing clock-in reminders for ${currentTime}`);
 
   for (const worker of workers) {
+    const notifType = `clock_in_${currentTime.replace(':', '')}_shift${worker.shift_start.replace(':', '')}`;
+    
     // Check idempotency
     const alreadySent = await checkNotificationSent(supabase, worker.id, notifType, siteDate);
     if (alreadySent) {
@@ -207,19 +274,19 @@ async function handleClockInReminders(
     const clockedIn = await isWorkerClockedIn(supabase, worker.id, siteDate);
     if (clockedIn) {
       console.log(`Worker ${worker.name} already clocked in, canceling remaining clock-in reminders`);
-      await cancelNotifications(supabase, worker.id, siteDate, 'clock_in_');
+      await cancelNotifications(supabase, worker.id, siteDate, `clock_in_.*_shift${worker.shift_start.replace(':', '')}`);
       continue;
     }
 
-    // Send reminder
-    const title = getClockInTitle(currentTime);
-    const body = 'Shift starts at 7:00. Please clock in.';
+    // Dynamic message based on worker's shift_start
+    const title = getClockInTitle(currentTime, worker.shift_start);
+    const body = `Shift starts at ${worker.shift_start}. Please clock in.`;
     
     await sendNotification(supabase, worker.id, title, body, notifType, siteDate);
     await logNotification(supabase, worker.id, notifType, siteDate);
     
     sent++;
-    console.log(`Sent clock-in reminder to ${worker.name} at ${currentTime}`);
+    console.log(`Sent clock-in reminder to ${worker.name} at ${currentTime} (shift: ${worker.shift_start})`);
   }
 
   return sent;
@@ -232,11 +299,12 @@ async function handleClockOutReminders(
   workers: Worker[]
 ): Promise<number> {
   let sent = 0;
-  const notifType = `clock_out_${currentTime.replace(':', '')}`;
   
   console.log(`Processing clock-out reminders for ${currentTime}`);
 
   for (const worker of workers) {
+    const notifType = `clock_out_${currentTime.replace(':', '')}_shift${worker.shift_end.replace(':', '')}`;
+    
     // Check idempotency
     const alreadySent = await checkNotificationSent(supabase, worker.id, notifType, siteDate);
     if (alreadySent) {
@@ -248,36 +316,37 @@ async function handleClockOutReminders(
     const stillClockedIn = await isWorkerStillClockedIn(supabase, worker.id, siteDate);
     if (!stillClockedIn) {
       console.log(`Worker ${worker.name} already clocked out, canceling remaining clock-out reminders`);
-      await cancelNotifications(supabase, worker.id, siteDate, 'clock_out_');
+      await cancelNotifications(supabase, worker.id, siteDate, `clock_out_.*_shift${worker.shift_end.replace(':', '')}`);
       continue;
     }
 
-    // Send reminder
-    const title = getClockOutTitle(currentTime);
-    const body = 'Shift ended at 15:00. Please clock out.';
+    // Dynamic message based on worker's shift_end
+    const title = getClockOutTitle(currentTime, worker.shift_end);
+    const body = `Shift ended at ${worker.shift_end}. Please clock out.`;
     
     await sendNotification(supabase, worker.id, title, body, notifType, siteDate);
     await logNotification(supabase, worker.id, notifType, siteDate);
     
     sent++;
-    console.log(`Sent clock-out reminder to ${worker.name} at ${currentTime}`);
+    console.log(`Sent clock-out reminder to ${worker.name} at ${currentTime} (shift: ${worker.shift_end})`);
   }
 
   return sent;
 }
 
 async function handleAutoClockOut(
-  supabase: any, 
+  supabase: any,
+  currentTime: string, 
   siteDate: Date, 
   workers: Worker[]
 ): Promise<number> {
   let performed = 0;
   
-  console.log(`\n========== AUTO CLOCK-OUT at 17:00 ==========`);
-  console.log(`Processing ${workers.length} workers for date: ${siteDate.toISOString().split('T')[0]}`);
+  console.log(`\n========== AUTO CLOCK-OUT at ${currentTime} ==========`);
+  console.log(`Processing ${workers.length} workers`);
 
   for (const worker of workers) {
-    console.log(`\n--- Worker: ${worker.name} (${worker.id}) ---`);
+    console.log(`\n--- Worker: ${worker.name} (shift_end: ${worker.shift_end}) ---`);
     
     // Check if audit already exists (idempotency)
     const auditExists = await checkAuditExists(supabase, worker.id, siteDate);
@@ -286,9 +355,15 @@ async function handleAutoClockOut(
       continue;
     }
 
-    // Get today's entry BEFORE guard checks (for logging)
+    // Get today's entry
     const entry = await getTodayEntry(supabase, worker.id, siteDate);
-    console.log(`Clock entry:`, entry ? `Found (${entry.id}, clocked_in: ${entry.clock_in}, clocked_out: ${entry.clock_out})` : 'NOT FOUND');
+    if (!entry) {
+      console.log(`No clock entry found`);
+      await createAudit(supabase, worker.id, siteDate, false, 'NO_CLOCK_IN');
+      continue;
+    }
+    
+    console.log(`Clock entry: Found (${entry.id}, clocked_in: ${entry.clock_in}, clocked_out: ${entry.clock_out})`);
     
     // Run guard checks
     const checks = await runGuardChecks(supabase, worker.id, siteDate);
@@ -314,21 +389,15 @@ async function handleAutoClockOut(
       continue;
     }
 
-    // Get today's entry again to perform clock-out (already fetched above, but keeping for clarity)
-    if (!entry) {
-      console.error(`No clock entry found for ${worker.name}, cannot auto clock-out`);
-      await createAudit(supabase, worker.id, siteDate, false, 'NO_CLOCK_IN');
-      continue;
-    }
-
-    // Perform auto clock-out
+    // Calculate clock-out time based on worker's shift_end + 2 hours
+    const [shiftHour, shiftMin] = worker.shift_end.split(':').map(Number);
     const clockOutTime = new Date(siteDate);
-    clockOutTime.setHours(17, 0, 0, 0);
+    clockOutTime.setHours(shiftHour + 2, shiftMin, 0, 0); // shift_end + 2 hours
 
     const clockInTime = new Date(entry.clock_in);
     const totalHours = (clockOutTime.getTime() - clockInTime.getTime()) / (1000 * 60 * 60);
 
-    console.log(`Performing auto clock-out: totalHours=${totalHours.toFixed(2)}`);
+    console.log(`Performing auto clock-out at ${currentTime}: totalHours=${totalHours.toFixed(2)}`);
 
     const { error: updateError } = await supabase
       .from('clock_entries')
@@ -338,7 +407,7 @@ async function handleAutoClockOut(
         photo_required: false,
         auto_clocked_out: true,
         total_hours: totalHours,
-        notes: `Auto clocked-out at 17:00 (2 hours after shift end)`
+        notes: `Auto clocked-out at ${currentTime} (2 hours after ${worker.shift_end} shift end)`
       })
       .eq('id', entry.id);
 
@@ -354,18 +423,18 @@ async function handleAutoClockOut(
     // Log audit
     await createAudit(supabase, worker.id, siteDate, true, 'OK');
 
-    // Send confirmation
+    // Send confirmation with worker's shift_end
     await sendNotification(
       supabase,
       worker.id,
       'Auto Clocked-Out',
-      'You were auto clocked-out at 17:00.',
+      `You were auto clocked-out at ${currentTime} (2 hours after ${worker.shift_end} shift end).`,
       'auto_clockout_confirm',
       siteDate
     );
 
     // Cancel any remaining clock-out reminders
-    await cancelNotifications(supabase, worker.id, siteDate, 'clock_out_');
+    await cancelNotifications(supabase, worker.id, siteDate, `clock_out_.*_shift${worker.shift_end.replace(':', '')}`);
 
     performed++;
     console.log(`✅ Successfully auto clocked-out ${worker.name}`);
@@ -393,26 +462,18 @@ async function runGuardChecks(supabase: any, workerId: string, shiftDate: Date):
     return { canAutoClockOut: false, reason: 'ALREADY_CLOCKED_OUT' };
   }
 
-  // 3. Check if today is a scheduled shift day (already verified by caller, but double-check)
-  const dayOfWeek = shiftDate.getDay();
-  const weekdays = [1, 2, 3, 4, 5];
-  if (!weekdays.includes(dayOfWeek)) {
-    console.log(`  Guard: NO_SHIFT - not a weekday (${dayOfWeek})`);
-    return { canAutoClockOut: false, reason: 'NO_SHIFT' };
-  }
-
-  // 4. Get/create counter record
+  // 3. Get/create counter record
   const month = shiftDate.toISOString().slice(0, 7); // YYYY-MM
   const counter = await getOrCreateCounter(supabase, workerId, month);
   console.log(`  Guard: Counter check - monthly: ${counter.count_monthly}/3`);
 
-  // 5. Check monthly cap (≤3)
+  // 4. Check monthly cap (≤3)
   if (counter.count_monthly >= 3) {
     console.log(`  Guard: CAP_MONTH - monthly limit reached (${counter.count_monthly})`);
     return { canAutoClockOut: false, reason: 'CAP_MONTH' };
   }
 
-  // 6. Check rolling 14-day cap (≤2)
+  // 5. Check rolling 14-day cap (≤2)
   const rolling14Count = await getRolling14DayCount(supabase, workerId, shiftDate);
   console.log(`  Guard: Rolling 14-day check - count: ${rolling14Count}/2`);
   if (rolling14Count >= 2) {
@@ -420,13 +481,14 @@ async function runGuardChecks(supabase: any, workerId: string, shiftDate: Date):
     return { canAutoClockOut: false, reason: 'CAP_ROLLING14' };
   }
 
-  // 7. Check consecutive workdays
+  // 6. Check consecutive workdays
   const yesterday = new Date(shiftDate);
   yesterday.setDate(yesterday.getDate() - 1);
   
   const yesterdayAudit = await getAudit(supabase, workerId, yesterday);
   if (yesterdayAudit?.performed) {
     const yesterdayDOW = yesterday.getDay();
+    const weekdays = [1, 2, 3, 4, 5];
     // Only block if yesterday was also a weekday (consecutive workday)
     if (weekdays.includes(yesterdayDOW)) {
       console.log(`  Guard: CONSECUTIVE_BLOCK - auto clocked-out yesterday (${yesterday.toISOString().split('T')[0]})`);
@@ -631,14 +693,29 @@ async function cancelNotifications(
   supabase: any, 
   workerId: string, 
   siteDate: Date, 
-  typePrefix: string
+  typePattern: string
 ) {
-  await supabase
+  // For patterns with regex, we need to fetch and filter
+  const { data: logs } = await supabase
     .from('notification_log')
-    .update({ canceled: true })
+    .select('id, notification_type')
     .eq('worker_id', workerId)
     .eq('shift_date', siteDate.toISOString().split('T')[0])
-    .like('notification_type', `${typePrefix}%`);
+    .eq('canceled', false);
+
+  if (!logs || logs.length === 0) return;
+
+  const regex = new RegExp(typePattern);
+  const idsToCancel = logs
+    .filter((log: any) => regex.test(log.notification_type))
+    .map((log: any) => log.id);
+
+  if (idsToCancel.length > 0) {
+    await supabase
+      .from('notification_log')
+      .update({ canceled: true })
+      .in('id', idsToCancel);
+  }
 }
 
 async function sendNotification(
@@ -689,23 +766,37 @@ async function sendNotification(
 }
 
 // ============================================================================
-// Notification Templates
+// Notification Templates (Updated for Dynamic Shifts)
 // ============================================================================
 
-function getClockInTitle(time: string): string {
-  const titles: Record<string, string> = {
-    '06:55': '⏰ Shift Starting Soon',
-    '07:00': '🌅 Shift Start Time',
-    '07:15': '⚠️ Late Clock-In Reminder'
-  };
-  return titles[time] || 'Clock In Reminder';
+function getClockInTitle(currentTime: string, shiftStart: string): string {
+  const [currentHour, currentMin] = currentTime.split(':').map(Number);
+  const currentMinutes = currentHour * 60 + currentMin;
+  
+  const [shiftHour, shiftMin] = shiftStart.split(':').map(Number);
+  const shiftMinutes = shiftHour * 60 + shiftMin;
+  
+  const diff = currentMinutes - shiftMinutes;
+  
+  if (diff === -5) return '⏰ Shift Starting Soon';
+  if (diff === 0) return '🌅 Shift Start Time';
+  if (diff === 15) return '⚠️ Late Clock-In Reminder';
+  
+  return 'Clock In Reminder';
 }
 
-function getClockOutTitle(time: string): string {
-  const titles: Record<string, string> = {
-    '15:00': '✅ Shift End Time',
-    '15:30': '🏠 Time to Clock Out',
-    '16:00': '⏰ Final Clock-Out Reminder'
-  };
-  return titles[time] || 'Clock Out Reminder';
+function getClockOutTitle(currentTime: string, shiftEnd: string): string {
+  const [currentHour, currentMin] = currentTime.split(':').map(Number);
+  const currentMinutes = currentHour * 60 + currentMin;
+  
+  const [shiftHour, shiftMin] = shiftEnd.split(':').map(Number);
+  const shiftMinutes = shiftHour * 60 + shiftMin;
+  
+  const diff = currentMinutes - shiftMinutes;
+  
+  if (diff === 0) return '✅ Shift End Time';
+  if (diff === 15) return '🏠 Time to Clock Out';
+  if (diff === 30) return '⏰ Final Clock-Out Reminder';
+  
+  return 'Clock Out Reminder';
 }
