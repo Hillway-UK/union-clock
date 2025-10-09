@@ -74,32 +74,30 @@ export default function ClockScreen() {
 
   useEffect(() => {
     const init = async () => {
-      // Ensure worker is available in localStorage; if not, hydrate from Supabase
-      const cached = localStorage.getItem('worker');
-      if (!cached) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user?.email) {
-          const { data: workerRow, error } = await supabase
-            .from('workers')
-            .select('*, organizations!organization_id(name, logo_url)')
-            .eq('email', user.email)
-            .maybeSingle();
-          
-          if (error || !workerRow) {
-            // No worker profile; sign out to avoid redirect loops
-            await supabase.auth.signOut();
-            navigate('/login', { replace: true });
-            return;
-          }
-          localStorage.setItem('worker', JSON.stringify(workerRow));
-          setWorker(workerRow);
-        } else {
-          navigate('/login', { replace: true });
-          return;
-        }
-      } else {
-        setWorker(JSON.parse(cached));
+      // Always fetch fresh worker data from Supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) {
+        navigate('/login', { replace: true });
+        return;
       }
+
+      const { data: workerRow, error } = await supabase
+        .from('workers')
+        .select('*, organizations!organization_id(name, logo_url)')
+        .eq('email', user.email)
+        .maybeSingle();
+      
+      if (error || !workerRow) {
+        // No worker profile; sign out to avoid redirect loops
+        console.error('Worker fetch error:', error);
+        await supabase.auth.signOut();
+        navigate('/login', { replace: true });
+        return;
+      }
+      
+      // Update localStorage with fresh data (for backward compatibility)
+      localStorage.setItem('worker', JSON.stringify(workerRow));
+      setWorker(workerRow);
 
       // Load initial data
       loadJobs();
@@ -125,7 +123,7 @@ export default function ClockScreen() {
     };
 
     init();
-  }, []);
+  }, [navigate]);
 
 
   // Real-time jobs listener

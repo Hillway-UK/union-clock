@@ -1,18 +1,60 @@
-import { createRoot } from 'react-dom/client'
-import App from './App.tsx'
-import './index.css'
+import { createRoot } from 'react-dom/client';
+import App from './App.tsx';
+import './index.css';
+import { toast } from 'sonner';
 
-// Register service worker for PWA
+// Register service worker with update detection
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
+    navigator.serviceWorker
+      .register('/sw.js')
       .then((registration) => {
-        console.log('SW registered: ', registration);
+        console.log('[App] SW registered:', registration);
+
+        // Check for updates periodically (every 30 minutes)
+        setInterval(() => {
+          registration.update();
+        }, 30 * 60 * 1000);
+
+        // Listen for updates
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          if (!newWorker) return;
+
+          console.log('[App] SW update found');
+
+          newWorker.addEventListener('statechange', () => {
+            console.log('[App] SW state changed:', newWorker.state);
+            
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              // New version available
+              console.log('[App] New SW installed, showing update prompt');
+              
+              toast('✨ Update Available', {
+                description: 'A new version with updated logos is ready.',
+                duration: Infinity,
+                action: {
+                  label: 'Refresh',
+                  onClick: () => {
+                    console.log('[App] User clicked refresh');
+                    newWorker.postMessage('SKIP_WAITING');
+                  }
+                },
+              });
+            }
+          });
+        });
+
+        // Reload when new SW takes control
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          console.log('[App] New SW took control, reloading...');
+          window.location.reload();
+        });
       })
-      .catch((registrationError) => {
-        console.log('SW registration failed: ', registrationError);
+      .catch((error) => {
+        console.error('[App] SW registration failed:', error);
       });
   });
 }
 
-createRoot(document.getElementById("root")!).render(<App />);
+createRoot(document.getElementById('root')!).render(<App />);

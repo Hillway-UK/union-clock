@@ -1,26 +1,138 @@
-const CACHE_NAME = "AutoTime";
-const urlsToCache = [
-  "/",
-  "/login",
-  "/clock",
-  "/timesheets",
-  "/profile",
-  "/manifest.json",
-  "/icon-192.png",
-  "/icon-512.png",
+const VERSION = '1.0.0';
+const CACHE_NAME = `autotime-v${VERSION}`;
+const PRECACHE_URLS = [
+  '/',
+  '/manifest.webmanifest',
 ];
 
-self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(urlsToCache)));
+self.addEventListener('install', (event) => {
+  console.log(`[SW] Installing version ${VERSION}`);
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS))
+  );
+  // Force immediate activation
+  self.skipWaiting();
 });
 
-self.addEventListener("fetch", (event) => {
-  event.respondWith(
-    caches.match(event.request).then((response) => {
-      // Return cached version or fetch from network
-      return response || fetch(event.request);
-    }),
+self.addEventListener('activate', (event) => {
+  console.log(`[SW] Activating version ${VERSION}`);
+  event.waitUntil(
+    (async () => {
+      // Delete old caches
+      const keys = await caches.keys();
+      await Promise.all(
+        keys.map(key => {
+          if (key !== CACHE_NAME) {
+            console.log(`[SW] Deleting old cache: ${key}`);
+            return caches.delete(key);
+          }
+        })
+      );
+      // Take control immediately
+      await self.clients.claim();
+    })()
   );
+});
+
+// NetworkFirst strategy with optional TTL
+async function networkFirst(request, cacheName, maxAge = null) {
+  try {
+    const response = await fetch(request);
+    const cache = await caches.open(cacheName);
+    
+    // Clone and cache the response
+    const responseToCache = response.clone();
+    
+    // Add timestamp for TTL checking
+    if (maxAge) {
+      const headers = new Headers(responseToCache.headers);
+      headers.set('sw-cache-time', Date.now().toString());
+      const blob = await responseToCache.blob();
+      const cachedResponse = new Response(blob, {
+        status: responseToCache.status,
+        statusText: responseToCache.statusText,
+        headers
+      });
+      cache.put(request, cachedResponse);
+    } else {
+      cache.put(request, responseToCache);
+    }
+    
+    return response;
+  } catch (error) {
+    console.log('[SW] Network failed, trying cache:', error);
+    
+    const cached = await caches.match(request);
+    if (cached) {
+      // Check TTL if exists
+      if (maxAge) {
+        const cacheTime = cached.headers.get('sw-cache-time');
+        if (cacheTime && Date.now() - parseInt(cacheTime) > maxAge) {
+          console.log('[SW] Cached response expired');
+          throw new Error('Cached response expired');
+        }
+      }
+      return cached;
+    }
+    
+    throw error;
+  }
+}
+
+// CacheFirst strategy (for immutable assets)
+async function cacheFirst(request, cacheName) {
+  const cached = await caches.match(request);
+  if (cached) {
+    return cached;
+  }
+  
+  const response = await fetch(request);
+  const cache = await caches.open(cacheName);
+  cache.put(request, response.clone());
+  return response;
+}
+
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
+
+  // Don't cache non-GET requests
+  if (request.method !== 'GET') return;
+
+  // NetworkFirst for HTML files
+  if (url.pathname.endsWith('.html') || url.pathname === '/') {
+    event.respondWith(networkFirst(request, CACHE_NAME));
+    return;
+  }
+
+  // NetworkFirst for Supabase Storage (organization logos)
+  if (url.hostname.includes('supabase.co') && url.pathname.includes('/storage/')) {
+    event.respondWith(networkFirst(request, CACHE_NAME, 300000)); // 5min TTL
+    return;
+  }
+
+  // NetworkFirst for Supabase API calls
+  if (url.hostname.includes('supabase.co') && url.pathname.includes('/rest/')) {
+    event.respondWith(networkFirst(request, CACHE_NAME, 60000)); // 1min TTL
+    return;
+  }
+
+  // CacheFirst for Vite bundled assets (hashed filenames)
+  if (url.pathname.startsWith('/assets/')) {
+    event.respondWith(cacheFirst(request, CACHE_NAME));
+    return;
+  }
+
+  // Default: NetworkFirst
+  event.respondWith(networkFirst(request, CACHE_NAME));
+});
+
+// Listen for skipWaiting message
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING') {
+    console.log('[SW] Received SKIP_WAITING message');
+    self.skipWaiting();
+  }
 });
 
 // Push notification handling
