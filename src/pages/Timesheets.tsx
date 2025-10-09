@@ -265,15 +265,22 @@ export default function Timesheets() {
       let requestedClockOut = selectedEntry.clock_out;
       
       if (newClockIn) {
-        // Parse the datetime-local string as UK time
-        const ukDate = new Date(newClockIn);
-        // Convert to UK timezone-aware timestamp
-        requestedClockIn = formatInTimeZone(ukDate, UK_TIMEZONE, "yyyy-MM-dd'T'HH:mm:ssXXX");
+        // The datetime-local value is a string like "2024-10-09T14:30"
+        // We need to treat this as UK time, not local browser time
+        // Pass the string directly to formatInTimeZone which will parse it correctly
+        requestedClockIn = formatInTimeZone(
+          newClockIn,
+          UK_TIMEZONE,
+          "yyyy-MM-dd'T'HH:mm:ssXXX"
+        );
       }
       
       if (newClockOut) {
-        const ukDate = new Date(newClockOut);
-        requestedClockOut = formatInTimeZone(ukDate, UK_TIMEZONE, "yyyy-MM-dd'T'HH:mm:ssXXX");
+        requestedClockOut = formatInTimeZone(
+          newClockOut,
+          UK_TIMEZONE,
+          "yyyy-MM-dd'T'HH:mm:ssXXX"
+        );
       }
       
       const { error } = await supabase
