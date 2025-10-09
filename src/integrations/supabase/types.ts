@@ -281,6 +281,72 @@ export type Database = {
           },
         ]
       }
+      clock_entry_history: {
+        Row: {
+          amendment_id: string | null
+          change_type: string
+          changed_at: string
+          changed_by: string
+          clock_entry_id: string
+          id: string
+          metadata: Json | null
+          new_clock_in: string | null
+          new_clock_out: string | null
+          new_total_hours: number | null
+          notes: string | null
+          old_clock_in: string | null
+          old_clock_out: string | null
+          old_total_hours: number | null
+        }
+        Insert: {
+          amendment_id?: string | null
+          change_type: string
+          changed_at?: string
+          changed_by: string
+          clock_entry_id: string
+          id?: string
+          metadata?: Json | null
+          new_clock_in?: string | null
+          new_clock_out?: string | null
+          new_total_hours?: number | null
+          notes?: string | null
+          old_clock_in?: string | null
+          old_clock_out?: string | null
+          old_total_hours?: number | null
+        }
+        Update: {
+          amendment_id?: string | null
+          change_type?: string
+          changed_at?: string
+          changed_by?: string
+          clock_entry_id?: string
+          id?: string
+          metadata?: Json | null
+          new_clock_in?: string | null
+          new_clock_out?: string | null
+          new_total_hours?: number | null
+          notes?: string | null
+          old_clock_in?: string | null
+          old_clock_out?: string | null
+          old_total_hours?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clock_entry_history_amendment_id_fkey"
+            columns: ["amendment_id"]
+            isOneToOne: false
+            referencedRelation: "time_amendments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clock_entry_history_clock_entry_id_fkey"
+            columns: ["clock_entry_id"]
+            isOneToOne: false
+            referencedRelation: "clock_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       demo_requests: {
         Row: {
           admin_users: number | null
@@ -707,6 +773,47 @@ export type Database = {
         }
         Relationships: []
       }
+      subscription_audit_log: {
+        Row: {
+          action: string
+          after_count: number | null
+          before_count: number | null
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          organization_id: string | null
+          trigger_source: string
+        }
+        Insert: {
+          action: string
+          after_count?: number | null
+          before_count?: number | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          organization_id?: string | null
+          trigger_source: string
+        }
+        Update: {
+          action?: string
+          after_count?: number | null
+          before_count?: number | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          organization_id?: string | null
+          trigger_source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_audit_log_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscription_usage: {
         Row: {
           active_managers: number | null
@@ -1118,6 +1225,19 @@ export type Database = {
       user_is_worker: {
         Args: { check_worker_id: string }
         Returns: boolean
+      }
+      validate_subscription_counts: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          expected_managers: number
+          expected_workers: number
+          manager_discrepancy: number
+          organization_id: string
+          organization_name: string
+          recorded_managers: number
+          recorded_workers: number
+          worker_discrepancy: number
+        }[]
       }
     }
     Enums: {
