@@ -57,7 +57,7 @@ interface ExpenseType {
 
 export default function ClockScreen() {
   const navigate = useNavigate();
-  const { worker: contextWorker, loading: workerLoading } = useWorker();
+  const { worker: contextWorker, loading: workerLoading, refreshWorker } = useWorker();
   const { triggerUpdate, updateAvailable } = useUpdate();
   const [worker, setWorker] = useState<Worker | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -727,6 +727,9 @@ export default function ClockScreen() {
       if (error) throw error;
       
       console.log('PWA install dialog dismissed for worker:', worker.id);
+      
+      // Refresh worker context to get updated flag
+      await refreshWorker();
     } catch (error) {
       console.error('Error dismissing PWA dialog:', error);
     }
