@@ -19,6 +19,7 @@ interface Worker {
   updated_at: string;
   must_change_password: boolean;
   first_login_info_dismissed: boolean;
+  pwa_install_info_dismissed: boolean;
   shift_start: string;
   shift_end: string;
   shift_days: number[];

@@ -1077,6 +1077,7 @@ export type Database = {
           organization_id: string
           phone: string | null
           photo_url: string | null
+          pwa_install_info_dismissed: boolean | null
           shift_days: number[] | null
           shift_end: string | null
           shift_start: string | null
@@ -1098,6 +1099,7 @@ export type Database = {
           organization_id: string
           phone?: string | null
           photo_url?: string | null
+          pwa_install_info_dismissed?: boolean | null
           shift_days?: number[] | null
           shift_end?: string | null
           shift_start?: string | null
@@ -1119,6 +1121,7 @@ export type Database = {
           organization_id?: string
           phone?: string | null
           photo_url?: string | null
+          pwa_install_info_dismissed?: boolean | null
           shift_days?: number[] | null
           shift_end?: string | null
           shift_start?: string | null

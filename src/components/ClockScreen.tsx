@@ -20,6 +20,7 @@ interface Worker {
   organization_id?: string;
   organizations?: { name: string; logo_url?: string };
   shift_end?: string;
+  pwa_install_info_dismissed?: boolean;
 }
 
 interface Job {
@@ -97,11 +98,9 @@ export default function ClockScreen() {
       requestLocation();
       fetchExpenseTypes();
       
-      // Check if this is first visit and show PWA install dialog
-      const hasSeenPWADialog = localStorage.getItem('hasSeenPWADialog');
-      if (!hasSeenPWADialog) {
+      // Check if worker has dismissed PWA dialog from database
+      if (contextWorker && !contextWorker.pwa_install_info_dismissed) {
         setShowPWADialog(true);
-        localStorage.setItem('hasSeenPWADialog', 'true');
       }
 
       // Update time every second
@@ -716,6 +715,23 @@ export default function ClockScreen() {
     }
   };
 
+  const handlePWADialogDismiss = async () => {
+    if (!worker?.id) return;
+    
+    try {
+      const { error } = await supabase
+        .from('workers')
+        .update({ pwa_install_info_dismissed: true })
+        .eq('id', worker.id);
+      
+      if (error) throw error;
+      
+      console.log('PWA install dialog dismissed for worker:', worker.id);
+    } catch (error) {
+      console.error('Error dismissing PWA dialog:', error);
+    }
+  };
+
   if (!worker) return null;
 
   return (
@@ -1032,7 +1048,11 @@ export default function ClockScreen() {
       </div>
 
       {/* PWA Install Dialog */}
-      <PWAInstallDialog open={showPWADialog} onOpenChange={setShowPWADialog} />
+      <PWAInstallDialog 
+        open={showPWADialog} 
+        onOpenChange={setShowPWADialog}
+        onDismiss={handlePWADialogDismiss}
+      />
 
     </div>
   );

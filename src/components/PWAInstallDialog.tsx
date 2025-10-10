@@ -6,9 +6,10 @@ import { Smartphone, Share, MoreVertical, Plus, Home } from "lucide-react";
 interface PWAInstallDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onDismiss?: () => Promise<void>;
 }
 
-export default function PWAInstallDialog({ open, onOpenChange }: PWAInstallDialogProps) {
+export default function PWAInstallDialog({ open, onOpenChange, onDismiss }: PWAInstallDialogProps) {
   const [deviceType, setDeviceType] = useState<"ios" | "android" | "other">("other");
 
   useEffect(() => {
@@ -175,7 +176,15 @@ export default function PWAInstallDialog({ open, onOpenChange }: PWAInstallDialo
             </ul>
           </div>
 
-          <Button onClick={() => onOpenChange(false)} className="w-full">
+          <Button 
+            onClick={async () => {
+              if (onDismiss) {
+                await onDismiss();
+              }
+              onOpenChange(false);
+            }} 
+            className="w-full"
+          >
             Got it
           </Button>
         </div>
