@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import autoTimeLogo from '@/assets/autotime-logo.jpg';
 
 interface OrganizationLogoProps {
@@ -8,7 +8,7 @@ interface OrganizationLogoProps {
   showText?: boolean;
 }
 
-export const OrganizationLogo: React.FC<OrganizationLogoProps> = ({ 
+export const OrganizationLogo: React.FC<OrganizationLogoProps> = React.memo(({ 
   organizationLogoUrl,
   size = 'large', 
   className = '',
@@ -16,19 +16,23 @@ export const OrganizationLogo: React.FC<OrganizationLogoProps> = ({
 }) => {
   const [imageError, setImageError] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const prevUrlRef = useRef<string | null | undefined>(organizationLogoUrl);
   
   const logoSrc = (imageError || !organizationLogoUrl) ? autoTimeLogo : organizationLogoUrl;
   const logoSizeClass = size === 'small' ? 'h-8' : 'h-12';
   const textSizeClass = size === 'small' ? 'text-lg' : 'text-2xl';
 
-  // Reset error state when organizationLogoUrl changes
+  // Only reset state when URL actually changes
   useEffect(() => {
-    if (organizationLogoUrl) {
-      setImageError(false);
-      setImageLoaded(false);
-      console.log('📸 Organization logo URL:', organizationLogoUrl);
-    } else {
-      console.warn('⚠️ No organization logo URL provided');
+    if (organizationLogoUrl !== prevUrlRef.current) {
+      if (organizationLogoUrl) {
+        setImageError(false);
+        setImageLoaded(false);
+        console.log('📸 Organization logo URL changed:', organizationLogoUrl);
+      } else {
+        console.warn('⚠️ No organization logo URL provided');
+      }
+      prevUrlRef.current = organizationLogoUrl;
     }
   }, [organizationLogoUrl]);
   
@@ -37,7 +41,7 @@ export const OrganizationLogo: React.FC<OrganizationLogoProps> = ({
       <img 
         src={logoSrc} 
         alt="Organization Logo" 
-        className={`${logoSizeClass} w-auto object-contain transition-opacity ${!imageLoaded && organizationLogoUrl ? 'opacity-0' : 'opacity-100'}`}
+        className={`${logoSizeClass} w-auto object-contain`}
         onError={() => {
           console.error('❌ Failed to load organization logo:', organizationLogoUrl);
           setImageError(true);
@@ -62,6 +66,8 @@ export const OrganizationLogo: React.FC<OrganizationLogoProps> = ({
       )}
     </div>
   );
-};
+});
+
+OrganizationLogo.displayName = 'OrganizationLogo';
 
 export default OrganizationLogo;
