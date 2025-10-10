@@ -5,28 +5,35 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ChevronLeft, Smartphone, Clock, FileText, Wallet, Edit, Lock, RefreshCw, MapPin, Bot, Share, Plus, Home, AlertCircle } from "lucide-react";
 import OrganizationLogo from "@/components/OrganizationLogo";
 import { GeofenceAutoClockoutInfo } from "@/components/GeofenceAutoClockoutInfo";
+import { useWorker } from "@/contexts/WorkerContext";
 
 export default function Help() {
   const navigate = useNavigate();
+  const { worker } = useWorker();
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-black text-white p-4 sticky top-0 z-50 shadow-lg">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+      <header className="bg-black text-white sticky top-0 z-50 shadow-lg">
+        <div className="px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <OrganizationLogo 
+                organizationLogoUrl={worker?.organizations?.logo_url}
+                size="small" 
+                showText={false} 
+              />
+              <div>
+                <h1 className="text-xl font-bold text-white">AutoTime</h1>
+              </div>
+            </div>
             <button
               onClick={() => navigate('/clock')}
-              className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+              className="h-9 w-9 flex items-center justify-center text-white hover:bg-gray-800 rounded-lg transition-colors"
               aria-label="Go back"
             >
-              <ChevronLeft className="h-6 w-6" />
+              <ChevronLeft className="h-5 w-5" />
             </button>
-            <OrganizationLogo className="h-8 w-8" />
-            <div>
-              <h1 className="font-semibold text-lg">Help & FAQs</h1>
-              <p className="text-xs text-gray-400">AutoTime</p>
-            </div>
           </div>
         </div>
       </header>
