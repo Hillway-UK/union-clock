@@ -34,6 +34,7 @@ export default function Timesheets() {
   const [workerHourlyRate, setWorkerHourlyRate] = useState<number>(0);
   const [organizationName, setOrganizationName] = useState<string>('');
   const [organizationLogoUrl, setOrganizationLogoUrl] = useState<string | null>(null);
+  const [editingAmendmentId, setEditingAmendmentId] = useState<string | null>(null);
   
   // Manual entry state
   const [showManualEntry, setShowManualEntry] = useState(false);
@@ -265,9 +266,6 @@ export default function Timesheets() {
       let requestedClockOut = selectedEntry.clock_out;
       
       if (newClockIn) {
-        // The datetime-local value is a string like "2024-10-09T14:30"
-        // We need to treat this as UK time, not local browser time
-        // Pass the string directly to formatInTimeZone which will parse it correctly
         requestedClockIn = formatInTimeZone(
           newClockIn,
           UK_TIMEZONE,
@@ -283,26 +281,51 @@ export default function Timesheets() {
         );
       }
       
-      const { error } = await supabase
-        .from('time_amendments')
-        .insert({
-          worker_id: workerData.id,
-          clock_entry_id: selectedEntry.id,
-          requested_clock_in: requestedClockIn,
-          requested_clock_out: requestedClockOut,
-          reason: amendmentReason,
-          status: 'pending'
-        });
-    
-      if (error) {
-        toast.error('Failed to submit amendment');
+      // Check if we're updating an existing pending amendment
+      if (editingAmendmentId) {
+        const { error } = await supabase
+          .from('time_amendments')
+          .update({
+            requested_clock_in: requestedClockIn,
+            requested_clock_out: requestedClockOut,
+            reason: amendmentReason
+          })
+          .eq('id', editingAmendmentId);
+      
+        if (error) {
+          toast.error('Failed to update amendment');
+        } else {
+          toast.success('Amendment request updated');
+          setShowAmendmentDialog(false);
+          setAmendmentReason('');
+          setNewClockIn('');
+          setNewClockOut('');
+          setEditingAmendmentId(null);
+          fetchAmendments();
+        }
       } else {
-        toast.success('Amendment request submitted for approval');
-        setShowAmendmentDialog(false);
-        setAmendmentReason('');
-        setNewClockIn('');
-        setNewClockOut('');
-        fetchAmendments();
+        // Insert new amendment
+        const { error } = await supabase
+          .from('time_amendments')
+          .insert({
+            worker_id: workerData.id,
+            clock_entry_id: selectedEntry.id,
+            requested_clock_in: requestedClockIn,
+            requested_clock_out: requestedClockOut,
+            reason: amendmentReason,
+            status: 'pending'
+          });
+      
+        if (error) {
+          toast.error('Failed to submit amendment');
+        } else {
+          toast.success('Amendment request submitted for approval');
+          setShowAmendmentDialog(false);
+          setAmendmentReason('');
+          setNewClockIn('');
+          setNewClockOut('');
+          fetchAmendments();
+        }
       }
     } catch (error) {
       console.error('Error submitting amendment:', error);
@@ -489,6 +512,8 @@ export default function Timesheets() {
   const groupEntriesByDay = () => entriesByDay;
   const calculateWeeklyHours = () => weeklyTotal.toFixed(2);
   const getAmendmentForEntry = (entryId: string) => existingAmendments.find(a => a.clock_entry_id === entryId);
+  const getPendingAmendmentForEntry = (entryId: string) => 
+    existingAmendments.find(a => a.clock_entry_id === entryId && a.status === 'pending');
   const calculateEntryHours = (entry: any) => calculateHours(entry.clock_in, entry.clock_out).toFixed(2);
   const calculateEntryPay = (entry: any) => (calculateHours(entry.clock_in, entry.clock_out) * workerHourlyRate).toFixed(2);
   const changeWeek = (direction: 'prev' | 'next') => {
@@ -498,16 +523,37 @@ export default function Timesheets() {
   const openAmendmentDialog = (entry: any) => {
     setSelectedEntry(entry);
     
-    // Convert existing times to UK timezone for display in datetime-local input
-    if (entry.clock_in) {
-      const ukClockIn = toZonedTime(entry.clock_in, UK_TIMEZONE);
-      // Format as datetime-local string (YYYY-MM-DDTHH:mm)
-      setNewClockIn(format(ukClockIn, "yyyy-MM-dd'T'HH:mm"));
-    }
+    // Check if there's a pending amendment for this entry
+    const pendingAmendment = getPendingAmendmentForEntry(entry.id);
     
-    if (entry.clock_out) {
-      const ukClockOut = toZonedTime(entry.clock_out, UK_TIMEZONE);
-      setNewClockOut(format(ukClockOut, "yyyy-MM-dd'T'HH:mm"));
+    if (pendingAmendment) {
+      // Pre-fill with existing pending amendment data
+      setEditingAmendmentId(pendingAmendment.id);
+      setAmendmentReason(pendingAmendment.reason);
+      
+      if (pendingAmendment.requested_clock_in) {
+        const ukClockIn = toZonedTime(pendingAmendment.requested_clock_in, UK_TIMEZONE);
+        setNewClockIn(format(ukClockIn, "yyyy-MM-dd'T'HH:mm"));
+      }
+      
+      if (pendingAmendment.requested_clock_out) {
+        const ukClockOut = toZonedTime(pendingAmendment.requested_clock_out, UK_TIMEZONE);
+        setNewClockOut(format(ukClockOut, "yyyy-MM-dd'T'HH:mm"));
+      }
+    } else {
+      // New amendment - use original entry times
+      setEditingAmendmentId(null);
+      setAmendmentReason('');
+      
+      if (entry.clock_in) {
+        const ukClockIn = toZonedTime(entry.clock_in, UK_TIMEZONE);
+        setNewClockIn(format(ukClockIn, "yyyy-MM-dd'T'HH:mm"));
+      }
+      
+      if (entry.clock_out) {
+        const ukClockOut = toZonedTime(entry.clock_out, UK_TIMEZONE);
+        setNewClockOut(format(ukClockOut, "yyyy-MM-dd'T'HH:mm"));
+      }
     }
     
     setShowAmendmentDialog(true);
@@ -683,14 +729,36 @@ export default function Timesheets() {
                       
                       {/* Action Buttons */}
                       <div className="mt-3 flex space-x-2">
-                        {!getAmendmentForEntry(entry.id) && entry.clock_out && (
-                          <button
-                            onClick={() => openAmendmentDialog(entry)}
-                            className="text-sm px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700"
-                          >
-                            Request Amendment
-                          </button>
-                        )}
+                        {entry.clock_out && (() => {
+                          const pendingAmendment = getPendingAmendmentForEntry(entry.id);
+                          const amendment = getAmendmentForEntry(entry.id);
+                          
+                          // Show "Update Amendment" if there's a pending amendment
+                          if (pendingAmendment) {
+                            return (
+                              <button
+                                onClick={() => openAmendmentDialog(entry)}
+                                className="text-sm px-3 py-1 bg-blue-100 hover:bg-blue-200 rounded-lg text-blue-700"
+                              >
+                                Update Pending Amendment
+                              </button>
+                            );
+                          }
+                          
+                          // Show "Request Amendment" if no amendment or if last was approved/rejected
+                          if (!amendment || amendment.status === 'approved' || amendment.status === 'rejected') {
+                            return (
+                              <button
+                                onClick={() => openAmendmentDialog(entry)}
+                                className="text-sm px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700"
+                              >
+                                Request Amendment
+                              </button>
+                            );
+                          }
+                          
+                          return null;
+                        })()}
                         
                         {!entry.additional_costs?.length && entry.clock_out && (
                           <button
@@ -714,8 +782,15 @@ export default function Timesheets() {
       <Dialog open={showAmendmentDialog} onOpenChange={setShowAmendmentDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Request Amendment</DialogTitle>
+            <DialogTitle>
+              {editingAmendmentId ? 'Update Pending Amendment' : 'Request Amendment'}
+            </DialogTitle>
           </DialogHeader>
+          {editingAmendmentId && (
+            <div className="bg-blue-50 text-blue-800 p-3 rounded-lg text-sm">
+              You're updating your pending amendment request
+            </div>
+          )}
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium">Reason for Amendment</label>
@@ -761,7 +836,7 @@ export default function Timesheets() {
                 onClick={submitAmendment}
                 className="flex-1 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800"
               >
-                Submit Request
+                {editingAmendmentId ? 'Update Request' : 'Submit Request'}
               </button>
             </div>
           </div>
