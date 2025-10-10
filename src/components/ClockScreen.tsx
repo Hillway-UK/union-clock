@@ -9,7 +9,6 @@ import { toast } from 'sonner';
 import OrganizationLogo from '@/components/OrganizationLogo';
 import PWAInstallDialog from '@/components/PWAInstallDialog';
 import NotificationPanel from '@/components/NotificationPanel';
-import { GeofenceAutoClockoutInfo } from '@/components/GeofenceAutoClockoutInfo';
 import { useWorker } from '@/contexts/WorkerContext';
 import { useUpdate } from '@/contexts/UpdateContext';
 
@@ -78,7 +77,6 @@ export default function ClockScreen() {
   const [completedClockEntry, setCompletedClockEntry] = useState<any>(null);
   const [showPWADialog, setShowPWADialog] = useState(false);
   const [isTrackingLocation, setIsTrackingLocation] = useState(false);
-  const [showGeofenceInfo, setShowGeofenceInfo] = useState(false);
   const locationIntervalRef = useRef<number | null>(null);
 
   // Set worker from context
@@ -929,38 +927,6 @@ export default function ClockScreen() {
             </CardContent>
           </Card>
         )}
-
-        {/* Geofence Auto-Clockout Info */}
-        <Card>
-          <CardContent className="p-4">
-            <button
-              onClick={() => setShowGeofenceInfo(!showGeofenceInfo)}
-              className="w-full flex items-center justify-between text-left"
-            >
-              <div className="flex items-center gap-2">
-                <Info className="h-5 w-5 text-primary" />
-                <span className="font-medium">How Auto-Clockout Works</span>
-              </div>
-              <span className="text-sm text-muted-foreground">
-                {showGeofenceInfo ? 'Hide' : 'Show'}
-              </span>
-            </button>
-            
-            {showGeofenceInfo && (
-              <div className="mt-4">
-                <GeofenceAutoClockoutInfo />
-              </div>
-            )}
-            
-            {isTrackingLocation && (
-              <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-                <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
-                <span>Location tracking active (last hour of shift)</span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
 
         {/* Timesheet Navigation */}
         <button
