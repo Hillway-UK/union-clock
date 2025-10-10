@@ -573,18 +573,13 @@ export default function Timesheets() {
               </button>
               <OrganizationLogo 
                 organizationLogoUrl={organizationLogoUrl}
-                size="small" 
+                size="medium" 
                 showText={false} 
               />
               <div>
                 <h1 className="text-xl font-bold text-white">AutoTime</h1>
                 <p className="text-sm text-gray-300">Timesheets</p>
               </div>
-              {organizationName && (
-                <span className="text-sm text-gray-300 border-l border-gray-500 pl-3">
-                  {organizationName}
-                </span>
-              )}
             </div>
           </div>
         </div>

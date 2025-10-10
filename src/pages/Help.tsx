@@ -20,7 +20,7 @@ export default function Help() {
             <div className="flex items-center space-x-3">
               <OrganizationLogo 
                 organizationLogoUrl={worker?.organizations?.logo_url}
-                size="small" 
+                size="medium" 
                 showText={false} 
               />
               <div>

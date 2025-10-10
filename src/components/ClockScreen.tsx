@@ -737,13 +737,13 @@ export default function ClockScreen() {
       
       {/* Header */}
       <header className="bg-black shadow-lg sticky top-0 z-50">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
+        <div className="px-4 py-4">
+          <div className="flex items-center justify-between">
             {/* Logo and Organization */}
             <div className="flex items-center space-x-3">
               <OrganizationLogo 
                 organizationLogoUrl={worker.organizations?.logo_url}
-                size="small" 
+                size="medium" 
                 showText={false} 
               />
               <div>

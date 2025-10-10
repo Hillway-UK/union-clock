@@ -3,7 +3,7 @@ import autoTimeLogo from '@/assets/autotime-logo.jpg';
 
 interface OrganizationLogoProps {
   organizationLogoUrl?: string | null;
-  size?: 'small' | 'large';
+  size?: 'small' | 'medium' | 'large';
   className?: string;
   showText?: boolean;
 }
@@ -19,7 +19,7 @@ export const OrganizationLogo: React.FC<OrganizationLogoProps> = React.memo(({
   const prevUrlRef = useRef<string | null | undefined>(organizationLogoUrl);
   
   const logoSrc = (imageError || !organizationLogoUrl) ? autoTimeLogo : organizationLogoUrl;
-  const logoSizeClass = size === 'small' ? 'h-8' : 'h-12';
+  const logoSizeClass = size === 'small' ? 'h-8' : size === 'medium' ? 'h-10' : 'h-12';
   const textSizeClass = size === 'small' ? 'text-lg' : 'text-2xl';
 
   // Only reset state when URL actually changes
