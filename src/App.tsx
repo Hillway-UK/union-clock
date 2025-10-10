@@ -9,7 +9,7 @@ import Login from "./components/Login";
 import ResetPassword from "./components/ResetPassword";
 import ClockScreen from "./components/ClockScreen";
 import Profile from "./components/Profile";
-import InstallGuide from "./components/InstallGuide";
+import Help from "./pages/Help";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Home from "./components/Home";
 import Timesheets from "./pages/Timesheets";
@@ -54,7 +54,7 @@ const App = () => (
               path="/help" 
               element={
                 <ProtectedRoute>
-                  <InstallGuide />
+                  <Help />
                 </ProtectedRoute>
               } 
             />

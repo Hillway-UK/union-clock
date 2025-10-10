@@ -778,9 +778,9 @@ export default function ClockScreen() {
               {worker && <NotificationPanel workerId={worker.id} />}
               
               <button
-                onClick={() => setShowPWADialog(true)}
+                onClick={() => navigate('/help')}
                 className="p-2 text-white hover:bg-gray-800 rounded-lg transition-colors"
-                title="App Installation Guide"
+                title="Help & FAQs"
               >
                 <Info className="h-5 w-5" />
               </button>
