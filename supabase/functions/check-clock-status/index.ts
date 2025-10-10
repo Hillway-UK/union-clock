@@ -109,14 +109,14 @@ serve(async (req) => {
       actionsPerformed += await handleClockInReminders(supabase, timeHHmm, siteDate, clockInWorkers);
     }
     
-    // 2. Check for clock-out reminders (exact, 15min after, 30min after shift_end)
+    // 2. Check for clock-out reminders (exact, 15min after shift_end)
     const clockOutWorkers = await getWorkersForClockOutReminder(supabase, timeHHmm, dayOfWeek);
     if (clockOutWorkers.length > 0) {
       console.log(`Found ${clockOutWorkers.length} workers for clock-out reminder at ${timeHHmm}`);
       actionsPerformed += await handleClockOutReminders(supabase, timeHHmm, siteDate, clockOutWorkers);
     }
     
-    // 3. Check for auto-clockout (2hr to 2hr10min after shift_end)
+    // 3. Check for auto-clockout (30min to 40min after shift_end)
     const autoClockoutWorkers = await getWorkersForAutoClockout(supabase, timeHHmm, dayOfWeek);
     if (autoClockoutWorkers.length > 0) {
       console.log(`Found ${autoClockoutWorkers.length} workers in auto-clockout window at ${timeHHmm}`);
@@ -200,7 +200,7 @@ async function getWorkersForClockOutReminder(supabase: any, currentTime: string,
   }
   
   // Filter workers whose shift_end matches:
-  // - exact, +15min, +30min
+  // - exact, +15min (removed +30min - now handled by auto-clockout)
   
   return workers.filter((w: Worker) => {
     if (!w.shift_days?.includes(dayOfWeek)) return false;
@@ -210,7 +210,7 @@ async function getWorkersForClockOutReminder(supabase: any, currentTime: string,
     const shiftMinutes = shiftHour * 60 + shiftMin;
     
     const diff = currentMinutes - shiftMinutes;
-    return diff === 0 || diff === 15 || diff === 30;
+    return diff === 0 || diff === 15; // Only exact and +15min
   });
 }
 
@@ -229,7 +229,7 @@ async function getWorkersForAutoClockout(supabase: any, currentTime: string, day
     return [];
   }
   
-  // Filter workers whose shift_end + 2hr to +2hr10min = current time
+  // Filter workers whose shift_end + 30min to +40min = current time
   
   return workers.filter((w: Worker) => {
     if (!w.shift_days?.includes(dayOfWeek)) return false;
@@ -238,9 +238,9 @@ async function getWorkersForAutoClockout(supabase: any, currentTime: string, day
     const [shiftHour, shiftMin] = w.shift_end.split(':').map(Number);
     const shiftEndMinutes = shiftHour * 60 + shiftMin;
     
-    // Auto-clockout window: shift_end + 2hr (120min) to +2hr10min (130min)
-    const autoClockoutStart = shiftEndMinutes + 120;
-    const autoClockoutEnd = shiftEndMinutes + 130;
+    // Auto-clockout window: shift_end + 30min to +40min (11 execution attempts)
+    const autoClockoutStart = shiftEndMinutes + 30;
+    const autoClockoutEnd = shiftEndMinutes + 40;
     
     return currentMinutes >= autoClockoutStart && currentMinutes <= autoClockoutEnd;
   });
@@ -389,10 +389,14 @@ async function handleAutoClockOut(
       continue;
     }
 
-    // Calculate clock-out time based on worker's shift_end + 2 hours
+    // Calculate clock-out time based on worker's shift_end + 30 minutes
     const [shiftHour, shiftMin] = worker.shift_end.split(':').map(Number);
     const clockOutTime = new Date(siteDate);
-    clockOutTime.setHours(shiftHour + 2, shiftMin, 0, 0); // shift_end + 2 hours
+    // Add 30 minutes to shift end time
+    const totalMinutes = shiftHour * 60 + shiftMin + 30;
+    const newHour = Math.floor(totalMinutes / 60);
+    const newMin = totalMinutes % 60;
+    clockOutTime.setHours(newHour, newMin, 0, 0); // shift_end + 30 minutes
 
     const clockInTime = new Date(entry.clock_in);
     const totalHours = (clockOutTime.getTime() - clockInTime.getTime()) / (1000 * 60 * 60);
@@ -407,7 +411,7 @@ async function handleAutoClockOut(
         photo_required: false,
         auto_clocked_out: true,
         total_hours: totalHours,
-        notes: `Auto clocked-out at ${currentTime} (2 hours after ${worker.shift_end} shift end)`
+        notes: `Auto clocked-out at ${currentTime} (30 minutes after ${worker.shift_end} shift end)`
       })
       .eq('id', entry.id);
 
@@ -428,7 +432,7 @@ async function handleAutoClockOut(
       supabase,
       worker.id,
       'Auto Clocked-Out',
-      `You were auto clocked-out at ${currentTime} (2 hours after ${worker.shift_end} shift end).`,
+      `You were auto clocked-out at ${currentTime} (30 minutes after ${worker.shift_end} shift end).`,
       'auto_clockout_confirm',
       siteDate
     );
@@ -796,7 +800,6 @@ function getClockOutTitle(currentTime: string, shiftEnd: string): string {
   
   if (diff === 0) return '✅ Shift End Time';
   if (diff === 15) return '🏠 Time to Clock Out';
-  if (diff === 30) return '⏰ Final Clock-Out Reminder';
   
   return 'Clock Out Reminder';
 }
