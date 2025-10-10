@@ -126,7 +126,7 @@ export default function NotificationPanel({ workerId }: NotificationPanelProps) 
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <button
-          className="relative p-2 text-white hover:bg-gray-800 rounded-lg transition-colors"
+          className="relative h-9 w-9 flex items-center justify-center text-white hover:bg-gray-800 rounded-lg transition-colors"
           title="Notifications"
         >
           <Bell className="h-5 w-5" />

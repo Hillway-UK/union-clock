@@ -748,11 +748,6 @@ export default function ClockScreen() {
               />
               <div>
                 <h1 className="text-xl font-bold text-white">AutoTime</h1>
-                {worker.organizations?.name && (
-                  <span className="text-sm text-gray-300">
-                    {worker.organizations.name}
-                  </span>
-                )}
               </div>
             </div>
             
@@ -760,7 +755,7 @@ export default function ClockScreen() {
             <div className="flex items-center space-x-2">
               <button
                 onClick={triggerUpdate}
-                className="p-2 text-white hover:bg-gray-800 rounded-lg transition-colors"
+                className="h-9 w-9 flex items-center justify-center text-white hover:bg-gray-800 rounded-lg transition-colors"
                 title="Refresh app"
               >
                 <RefreshCw className="h-5 w-5" />
@@ -768,7 +763,7 @@ export default function ClockScreen() {
               
               <button
                 onClick={() => navigate('/profile')}
-                className="p-2 text-white hover:bg-gray-800 rounded-lg transition-colors"
+                className="h-9 w-9 flex items-center justify-center text-white hover:bg-gray-800 rounded-lg transition-colors"
               >
                 <User className="h-5 w-5" />
               </button>
@@ -777,7 +772,7 @@ export default function ClockScreen() {
               
               <button
                 onClick={() => navigate('/help')}
-                className="p-2 text-white hover:bg-gray-800 rounded-lg transition-colors"
+                className="h-9 w-9 flex items-center justify-center text-white hover:bg-gray-800 rounded-lg transition-colors"
                 title="Help & FAQs"
               >
                 <Info className="h-5 w-5" />
@@ -785,7 +780,7 @@ export default function ClockScreen() {
               
               <button
                 onClick={handleLogout}
-                className="p-2 text-white hover:bg-gray-800 rounded-lg transition-colors"
+                className="h-9 w-9 flex items-center justify-center text-white hover:bg-gray-800 rounded-lg transition-colors"
               >
                 <LogOut className="h-5 w-5" />
               </button>
