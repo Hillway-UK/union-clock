@@ -57,7 +57,7 @@ interface ExpenseType {
 export default function ClockScreen() {
   const navigate = useNavigate();
   const { worker: contextWorker, loading: workerLoading } = useWorker();
-  const { triggerUpdate } = useUpdate();
+  const { triggerUpdate, updateAvailable } = useUpdate();
   const [worker, setWorker] = useState<Worker | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selectedJobId, setSelectedJobId] = useState('');
@@ -754,7 +754,13 @@ export default function ClockScreen() {
             {/* Navigation Buttons */}
             <div className="flex items-center space-x-2">
               <button
-                onClick={triggerUpdate}
+                onClick={() => {
+                  if (updateAvailable) {
+                    triggerUpdate();
+                  } else {
+                    toast.success("App is already up to date!");
+                  }
+                }}
                 className="h-9 w-9 flex items-center justify-center text-white hover:bg-gray-800 rounded-lg transition-colors"
                 title="Refresh app"
               >
