@@ -42,16 +42,11 @@ export default function Profile() {
               />
               <div>
                 <h1 className="text-xl font-bold text-white">AutoTime</h1>
-                {organizationName && (
-                  <span className="text-sm text-gray-300">
-                    {organizationName}
-                  </span>
-                )}
               </div>
             </div>
             <button
               onClick={() => navigate('/clock')}
-              className="p-2 text-white hover:bg-gray-800 rounded-lg transition-colors"
+              className="h-9 w-9 flex items-center justify-center text-white hover:bg-gray-800 rounded-lg transition-colors"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
