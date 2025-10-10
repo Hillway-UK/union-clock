@@ -143,21 +143,22 @@ export default function NotificationPanel({ workerId }: NotificationPanelProps) 
       
       <SheetContent side="right" className="w-full sm:max-w-md">
         <SheetHeader>
-          <SheetTitle className="flex items-center justify-between">
-            <span>Notifications</span>
-            {unreadCount > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleMarkAllAsRead}
-                className="text-xs"
-              >
-                <Check className="h-4 w-4 mr-1" />
-                Mark all read
-              </Button>
-            )}
-          </SheetTitle>
+          <SheetTitle>Notifications</SheetTitle>
         </SheetHeader>
+
+        {unreadCount > 0 && (
+          <div className="flex justify-end mt-2 pr-8">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleMarkAllAsRead}
+              className="text-xs"
+            >
+              <Check className="h-4 w-4 mr-1" />
+              Mark all read
+            </Button>
+          </div>
+        )}
 
         <ScrollArea className="h-[calc(100vh-8rem)] mt-4">
           {notifications.length === 0 && !updateAvailable ? (
