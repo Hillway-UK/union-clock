@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import OrganizationLogo from '@/components/OrganizationLogo';
 import PWAInstallDialog from '@/components/PWAInstallDialog';
 import NotificationPanel from '@/components/NotificationPanel';
+import { GeofenceAutoClockoutInfo } from '@/components/GeofenceAutoClockoutInfo';
 import { useWorker } from '@/contexts/WorkerContext';
 import { useUpdate } from '@/contexts/UpdateContext';
 
@@ -19,6 +20,7 @@ interface Worker {
   is_active: boolean;
   organization_id?: string;
   organizations?: { name: string; logo_url?: string };
+  shift_end?: string;
 }
 
 interface Job {
@@ -75,6 +77,9 @@ export default function ClockScreen() {
   const [showExpenseDialog, setShowExpenseDialog] = useState(false);
   const [completedClockEntry, setCompletedClockEntry] = useState<any>(null);
   const [showPWADialog, setShowPWADialog] = useState(false);
+  const [isTrackingLocation, setIsTrackingLocation] = useState(false);
+  const [showGeofenceInfo, setShowGeofenceInfo] = useState(false);
+  const locationIntervalRef = useRef<number | null>(null);
 
   // Set worker from context
   useEffect(() => {
@@ -171,6 +176,93 @@ export default function ClockScreen() {
       setRefreshingJobs(false);
     }
   };
+
+  // Background location tracking for geofence auto-clock-out
+  const sendLocationUpdate = async (position: GeolocationPosition) => {
+    if (!currentEntry || !worker) return;
+
+    try {
+      await supabase.functions.invoke('track-location', {
+        body: {
+          worker_id: worker.id,
+          clock_entry_id: currentEntry.id,
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+          timestamp: new Date().toISOString()
+        }
+      });
+    } catch (error) {
+      console.error('Error sending location update:', error);
+    }
+  };
+
+  const startLocationTracking = () => {
+    if (!worker?.shift_end || !currentEntry) return;
+    
+    console.log('Starting background location tracking...');
+    setIsTrackingLocation(true);
+
+    // Send initial location
+    navigator.geolocation.getCurrentPosition(
+      (position) => sendLocationUpdate(position),
+      (error) => console.error('Error getting location:', error),
+      { enableHighAccuracy: true }
+    );
+
+    // Send location every 45 seconds
+    const interval = window.setInterval(() => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => sendLocationUpdate(position),
+        (error) => console.error('Error getting location:', error),
+        { enableHighAccuracy: true }
+      );
+    }, 45000); // 45 seconds
+
+    locationIntervalRef.current = interval;
+  };
+
+  const stopLocationTracking = () => {
+    console.log('Stopping background location tracking...');
+    if (locationIntervalRef.current) {
+      clearInterval(locationIntervalRef.current);
+      locationIntervalRef.current = null;
+    }
+    setIsTrackingLocation(false);
+  };
+
+  const checkIsInLastHourWindow = (shiftEnd: string): boolean => {
+    const now = new Date();
+    const [shiftHour, shiftMin] = shiftEnd.split(':').map(Number);
+    
+    const shiftEndTime = new Date();
+    shiftEndTime.setHours(shiftHour, shiftMin, 0, 0);
+    
+    const windowStart = new Date(shiftEndTime.getTime() - 60 * 60 * 1000); // 60 minutes before
+    
+    return now >= windowStart && now <= shiftEndTime;
+  };
+
+  // Manage location tracking based on clock status and last hour window
+  useEffect(() => {
+    if (currentEntry && worker?.shift_end && !currentEntry.clock_out) {
+      const isInLastHour = checkIsInLastHourWindow(worker.shift_end);
+      
+      if (isInLastHour && !isTrackingLocation) {
+        startLocationTracking();
+      } else if (!isInLastHour && isTrackingLocation) {
+        stopLocationTracking();
+      }
+    } else if (isTrackingLocation) {
+      stopLocationTracking();
+    }
+
+    return () => {
+      if (isTrackingLocation) {
+        stopLocationTracking();
+      }
+    };
+  }, [currentEntry, worker?.shift_end, isTrackingLocation]);
 
   const fetchExpenseTypes = async () => {
     setLoadingExpenses(true);
@@ -837,6 +929,37 @@ export default function ClockScreen() {
             </CardContent>
           </Card>
         )}
+
+        {/* Geofence Auto-Clockout Info */}
+        <Card>
+          <CardContent className="p-4">
+            <button
+              onClick={() => setShowGeofenceInfo(!showGeofenceInfo)}
+              className="w-full flex items-center justify-between text-left"
+            >
+              <div className="flex items-center gap-2">
+                <Info className="h-5 w-5 text-primary" />
+                <span className="font-medium">How Auto-Clockout Works</span>
+              </div>
+              <span className="text-sm text-muted-foreground">
+                {showGeofenceInfo ? 'Hide' : 'Show'}
+              </span>
+            </button>
+            
+            {showGeofenceInfo && (
+              <div className="mt-4">
+                <GeofenceAutoClockoutInfo />
+              </div>
+            )}
+            
+            {isTrackingLocation && (
+              <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
+                <span>Location tracking active (last hour of shift)</span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
 
         {/* Timesheet Navigation */}

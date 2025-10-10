@@ -192,6 +192,7 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           auto_clocked_out: boolean | null
+          auto_clockout_type: string | null
           clock_in: string
           clock_in_lat: number | null
           clock_in_lng: number | null
@@ -201,6 +202,7 @@ export type Database = {
           clock_out_lng: number | null
           clock_out_photo: string | null
           created_at: string | null
+          geofence_exit_data: Json | null
           id: string
           job_id: string
           manual_entry: boolean | null
@@ -215,6 +217,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           auto_clocked_out?: boolean | null
+          auto_clockout_type?: string | null
           clock_in: string
           clock_in_lat?: number | null
           clock_in_lng?: number | null
@@ -224,6 +227,7 @@ export type Database = {
           clock_out_lng?: number | null
           clock_out_photo?: string | null
           created_at?: string | null
+          geofence_exit_data?: Json | null
           id?: string
           job_id: string
           manual_entry?: boolean | null
@@ -238,6 +242,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           auto_clocked_out?: boolean | null
+          auto_clockout_type?: string | null
           clock_in?: string
           clock_in_lat?: number | null
           clock_in_lng?: number | null
@@ -247,6 +252,7 @@ export type Database = {
           clock_out_lng?: number | null
           clock_out_photo?: string | null
           created_at?: string | null
+          geofence_exit_data?: Json | null
           id?: string
           job_id?: string
           manual_entry?: boolean | null
@@ -427,6 +433,72 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      geofence_events: {
+        Row: {
+          accuracy: number
+          clock_entry_id: string
+          created_at: string | null
+          distance_from_center: number
+          event_type: string
+          id: string
+          job_radius: number
+          latitude: number
+          longitude: number
+          metadata: Json | null
+          safe_out_threshold: number
+          shift_date: string
+          timestamp: string
+          worker_id: string
+        }
+        Insert: {
+          accuracy: number
+          clock_entry_id: string
+          created_at?: string | null
+          distance_from_center: number
+          event_type: string
+          id?: string
+          job_radius: number
+          latitude: number
+          longitude: number
+          metadata?: Json | null
+          safe_out_threshold: number
+          shift_date: string
+          timestamp: string
+          worker_id: string
+        }
+        Update: {
+          accuracy?: number
+          clock_entry_id?: string
+          created_at?: string | null
+          distance_from_center?: number
+          event_type?: string
+          id?: string
+          job_radius?: number
+          latitude?: number
+          longitude?: number
+          metadata?: Json | null
+          safe_out_threshold?: number
+          shift_date?: string
+          timestamp?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "geofence_events_clock_entry_id_fkey"
+            columns: ["clock_entry_id"]
+            isOneToOne: false
+            referencedRelation: "clock_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "geofence_events_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       jobs: {
         Row: {
@@ -1224,6 +1296,10 @@ export type Database = {
       }
       user_is_worker: {
         Args: { check_worker_id: string }
+        Returns: boolean
+      }
+      user_is_worker_in_org: {
+        Args: { check_org_id: string }
         Returns: boolean
       }
       validate_subscription_counts: {

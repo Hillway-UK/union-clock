@@ -389,6 +389,12 @@ async function handleAutoClockOut(
       continue;
     }
 
+    // Skip if already auto-clocked-out by geofence
+    if (entry.auto_clockout_type === 'geofence') {
+      console.log(`Worker ${worker.name} already auto-clocked-out by geofence, skipping time-based auto-clockout`);
+      continue;
+    }
+
     // Calculate clock-out time based on worker's shift_end + 30 minutes
     const [shiftHour, shiftMin] = worker.shift_end.split(':').map(Number);
     const clockOutTime = new Date(siteDate);
@@ -410,6 +416,7 @@ async function handleAutoClockOut(
         source: 'system_auto',
         photo_required: false,
         auto_clocked_out: true,
+        auto_clockout_type: 'time_based',
         total_hours: totalHours,
         notes: `Auto clocked-out at ${currentTime} (30 minutes after ${worker.shift_end} shift end)`
       })
