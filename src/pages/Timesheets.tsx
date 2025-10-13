@@ -283,6 +283,30 @@ export default function Timesheets() {
       
       // Check if we're updating an existing pending amendment
       if (editingAmendmentId) {
+        // SECURITY: Verify the amendment belongs to this worker before updating
+        const { data: existingAmendment, error: verifyError } = await supabase
+          .from('time_amendments')
+          .select('worker_id, status')
+          .eq('id', editingAmendmentId)
+          .single();
+        
+        if (verifyError || !existingAmendment) {
+          toast.error('Amendment not found');
+          return;
+        }
+        
+        if (existingAmendment.worker_id !== workerData.id) {
+          toast.error('Unauthorized: This amendment does not belong to you');
+          console.error('Authorization violation: Worker attempted to update another worker\'s amendment');
+          return;
+        }
+        
+        if (existingAmendment.status !== 'pending') {
+          toast.error('Cannot update amendment: Status is not pending');
+          return;
+        }
+        
+        // Now update with both id AND worker_id for defense-in-depth
         const { error } = await supabase
           .from('time_amendments')
           .update({
@@ -290,7 +314,8 @@ export default function Timesheets() {
             requested_clock_out: requestedClockOut,
             reason: amendmentReason
           })
-          .eq('id', editingAmendmentId);
+          .eq('id', editingAmendmentId)
+          .eq('worker_id', workerData.id);
       
         if (error) {
           toast.error('Failed to update amendment');
