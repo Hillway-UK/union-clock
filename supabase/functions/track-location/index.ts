@@ -40,7 +40,12 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const payload: LocationPayload = await req.json();
-    console.log('Received location update:', { worker_id: payload.worker_id, accuracy: payload.accuracy });
+    console.log('=== TRACK-LOCATION INVOCATION ===', {
+      worker_id: payload.worker_id,
+      clock_entry_id: payload.clock_entry_id,
+      accuracy: payload.accuracy,
+      timestamp: payload.timestamp
+    });
 
     // 1. Validate worker is clocked in
     const { data: clockEntry, error: entryError } = await supabase
@@ -58,6 +63,12 @@ Deno.serve(async (req) => {
         status: 200
       });
     }
+
+    console.log('Clock entry found:', {
+      clock_in: clockEntry.clock_in,
+      job_name: clockEntry.jobs?.name,
+      job_radius: clockEntry.jobs?.geofence_radius
+    });
 
     // 2. Get job details
     const job = clockEntry.jobs;
@@ -79,6 +90,13 @@ Deno.serve(async (req) => {
 
     // 4. Get safe-out threshold
     const threshold = getSafeOutThreshold(job.geofence_radius);
+
+    console.log('Distance calculation:', {
+      distance: distance.toFixed(2),
+      threshold: threshold,
+      radius: job.geofence_radius,
+      isOutside: distance > job.geofence_radius
+    });
 
     // 5. Record location fix event
     const shiftDate = new Date(clockEntry.clock_in).toISOString().split('T')[0];
@@ -111,7 +129,25 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Validate shift_end format
+    if (!/^\d{2}:\d{2}$/.test(worker.shift_end)) {
+      console.error('Invalid shift_end format:', worker.shift_end);
+      return new Response(JSON.stringify({ 
+        status: 'invalid_shift_end',
+        error: 'shift_end must be in HH:MM format'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400
+      });
+    }
+
     const isInLastHour = checkLastHourWindow(clockEntry.clock_in, worker.shift_end);
+    
+    console.log('Last hour window result:', {
+      isInLastHour,
+      worker_shift_end: worker.shift_end,
+      clock_in: clockEntry.clock_in
+    });
     
     if (!isInLastHour) {
       console.log('Not in last hour window');
@@ -123,6 +159,13 @@ Deno.serve(async (req) => {
 
     // 7. Check if reliable exit
     const isExit = reliableExit(distance, payload.accuracy, job.geofence_radius, threshold);
+    
+    console.log('Reliable exit check:', {
+      isExit,
+      distance,
+      accuracy: payload.accuracy,
+      threshold
+    });
 
     if (!isExit) {
       console.log('Not a reliable exit');
@@ -132,7 +175,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log('Exit detected! Starting grace period...');
+    console.log('EXIT DETECTED! Grace period starting...', {
+      grace_minutes: GRACE_MINUTES,
+      will_check_at: new Date(Date.now() + GRACE_MINUTES * 60 * 1000).toISOString()
+    });
     
     // 8. Record exit detected
     await supabase.from('geofence_events').insert({
@@ -151,6 +197,8 @@ Deno.serve(async (req) => {
 
     // 9. Wait for grace period (4 minutes) - check for re-entry
     await new Promise(resolve => setTimeout(resolve, GRACE_MINUTES * 60 * 1000));
+
+    console.log('Grace period complete. Checking for re-entry...');
 
     // Check if worker re-entered
     const { data: reentryEvents } = await supabase
@@ -186,6 +234,8 @@ Deno.serve(async (req) => {
       }
     }
 
+    console.log('No re-entry detected. Waiting for race buffer...');
+
     // 10. Wait for race buffer (60 seconds)
     await new Promise(resolve => setTimeout(resolve, RACE_BUFFER_SEC * 1000));
 
@@ -208,6 +258,11 @@ Deno.serve(async (req) => {
     const clockOutTime = new Date(payload.timestamp);
     const clockInTime = new Date(clockEntry.clock_in);
     const totalHours = (clockOutTime.getTime() - clockInTime.getTime()) / (1000 * 60 * 60);
+
+    console.log('Performing auto-clockout...', {
+      clock_out_time: clockOutTime.toISOString(),
+      total_hours: totalHours.toFixed(2)
+    });
 
     const { error: updateError } = await supabase
       .from('clock_entries')
@@ -318,18 +373,25 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 }
 
 function checkLastHourWindow(clockInIso: string, shiftEnd: string): boolean {
-  const clockIn = new Date(clockInIso);
   const now = new Date();
   
   // Parse shift_end time (HH:MM format)
   const [shiftHour, shiftMin] = shiftEnd.split(':').map(Number);
   
-  // Create shift end datetime for today
-  const shiftEndTime = new Date(clockIn);
+  // CRITICAL FIX: Create shift end datetime for TODAY (current date), not clockIn date
+  // This ensures the check works correctly even if worker stays clocked in overnight
+  const shiftEndTime = new Date();
   shiftEndTime.setHours(shiftHour, shiftMin, 0, 0);
   
   // Calculate last hour window start (shift_end - 60 minutes)
   const windowStart = new Date(shiftEndTime.getTime() - AUTO_WINDOW_MINUTES * 60 * 1000);
+  
+  console.log('Last hour window check:', {
+    now: now.toISOString(),
+    windowStart: windowStart.toISOString(),
+    shiftEndTime: shiftEndTime.toISOString(),
+    isInWindow: now >= windowStart && now <= shiftEndTime
+  });
   
   // Check if current time is within the window
   return now >= windowStart && now <= shiftEndTime;
