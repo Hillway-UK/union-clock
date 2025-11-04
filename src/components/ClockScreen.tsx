@@ -81,34 +81,6 @@ export default function ClockScreen() {
   const [isTrackingLocation, setIsTrackingLocation] = useState(false);
   const locationIntervalRef = useRef<number | null>(null);
 
-  // Show loading screen while worker data is loading
-  if (workerLoading) {
-    return (
-      <BrandedLoadingScreen 
-        message="Loading your dashboard..." 
-        showLogo={true}
-        organizationLogoUrl={contextWorker?.organizations?.logo_url}
-      />
-    );
-  }
-
-  // Show error if worker data failed to load
-  if (!contextWorker) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-6">
-        <div className="text-center space-y-4">
-          <Info className="h-12 w-12 text-muted-foreground mx-auto" />
-          <h2 className="text-xl font-semibold">Unable to Load Dashboard</h2>
-          <p className="text-muted-foreground">Could not load your worker profile. Please try again.</p>
-          <Button onClick={() => refreshWorker()} className="mt-4">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Retry
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   // Set worker from context
   useEffect(() => {
     if (contextWorker) {
@@ -764,7 +736,33 @@ export default function ClockScreen() {
     }
   };
 
-  if (!worker) return null;
+  // Show loading screen while worker data is loading
+  if (workerLoading) {
+    return (
+      <BrandedLoadingScreen 
+        message="Loading your dashboard..." 
+        showLogo={true}
+        organizationLogoUrl={contextWorker?.organizations?.logo_url}
+      />
+    );
+  }
+
+  // Show error if worker data failed to load
+  if (!contextWorker || !worker) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-6">
+        <div className="text-center space-y-4">
+          <Info className="h-12 w-12 text-muted-foreground mx-auto" />
+          <h2 className="text-xl font-semibold">Unable to Load Dashboard</h2>
+          <p className="text-muted-foreground">Could not load your worker profile. Please try again.</p>
+          <Button onClick={() => refreshWorker()} className="mt-4">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-safe">
