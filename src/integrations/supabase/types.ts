@@ -204,10 +204,16 @@ export type Database = {
           created_at: string | null
           geofence_exit_data: Json | null
           id: string
+          is_overtime: boolean | null
           job_id: string
           manual_entry: boolean | null
           needs_approval: boolean | null
           notes: string | null
+          ot_approved_at: string | null
+          ot_approved_by: string | null
+          ot_approved_reason: string | null
+          ot_requested_at: string | null
+          ot_status: string | null
           photo_required: boolean | null
           source: string | null
           total_hours: number | null
@@ -229,10 +235,16 @@ export type Database = {
           created_at?: string | null
           geofence_exit_data?: Json | null
           id?: string
+          is_overtime?: boolean | null
           job_id: string
           manual_entry?: boolean | null
           needs_approval?: boolean | null
           notes?: string | null
+          ot_approved_at?: string | null
+          ot_approved_by?: string | null
+          ot_approved_reason?: string | null
+          ot_requested_at?: string | null
+          ot_status?: string | null
           photo_required?: boolean | null
           source?: string | null
           total_hours?: number | null
@@ -254,10 +266,16 @@ export type Database = {
           created_at?: string | null
           geofence_exit_data?: Json | null
           id?: string
+          is_overtime?: boolean | null
           job_id?: string
           manual_entry?: boolean | null
           needs_approval?: boolean | null
           notes?: string | null
+          ot_approved_at?: string | null
+          ot_approved_by?: string | null
+          ot_approved_reason?: string | null
+          ot_requested_at?: string | null
+          ot_status?: string | null
           photo_required?: boolean | null
           source?: string | null
           total_hours?: number | null
@@ -276,6 +294,13 @@ export type Database = {
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clock_entries_ot_approved_by_fkey"
+            columns: ["ot_approved_by"]
+            isOneToOne: false
+            referencedRelation: "managers"
             referencedColumns: ["id"]
           },
           {
@@ -1150,8 +1175,13 @@ export type Database = {
     }
     Functions: {
       auto_clock_out_after_12_hours: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
+        Args: never
+        Returns: {
+          clock_out_time: string
+          job_name: string
+          worker_id: string
+          worker_name: string
+        }[]
       }
       can_manage_organization: {
         Args: { target_org_id: string }
@@ -1171,14 +1201,8 @@ export type Database = {
           planned_workers: number
         }[]
       }
-      check_is_manager: {
-        Args: { user_email: string }
-        Returns: boolean
-      }
-      ensure_usage_row: {
-        Args: { p_org: string }
-        Returns: undefined
-      }
+      check_is_manager: { Args: { user_email: string }; Returns: boolean }
+      ensure_usage_row: { Args: { p_org: string }; Returns: undefined }
       get_active_subscription_usage: {
         Args: { p_org_id: string }
         Returns: {
@@ -1198,9 +1222,15 @@ export type Database = {
           superseded_by: string | null
           total_cost: number | null
         }
+        SetofOptions: {
+          from: "*"
+          to: "subscription_usage"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       get_clocked_in_workers: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           clock_in: string
           job_name: string
@@ -1209,15 +1239,31 @@ export type Database = {
         }[]
       }
       get_current_user_permissions: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           is_manager: boolean
           is_super_admin: boolean
           organization_id: string
         }[]
       }
+      get_overtime_requests: {
+        Args: never
+        Returns: {
+          clock_in: string
+          clock_out: string
+          hours: number
+          id: string
+          job_name: string
+          ot_approved_by: string
+          ot_approved_reason: string
+          ot_requested_at: string
+          ot_status: string
+          worker_id: string
+          worker_name: string
+        }[]
+      }
       get_recent_activity: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           clock_in: string
           clock_out: string
@@ -1238,10 +1284,7 @@ export type Database = {
           workers_available: number
         }[]
       }
-      get_total_hours_today: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
+      get_total_hours_today: { Args: never; Returns: number }
       get_user_organization_id: {
         Args: { user_email: string }
         Returns: string
@@ -1257,20 +1300,11 @@ export type Database = {
         Args: { week_start: string; worker_uuid: string }
         Returns: number
       }
-      is_manager: {
-        Args: { user_email: string }
-        Returns: boolean
-      }
-      is_super_admin: {
-        Args: { user_email: string }
-        Returns: boolean
-      }
-      is_super_admin_of_org: {
-        Args: { org_id: string }
-        Returns: boolean
-      }
+      is_manager: { Args: { user_email: string }; Returns: boolean }
+      is_super_admin: { Args: { user_email: string }; Returns: boolean }
+      is_super_admin_of_org: { Args: { org_id: string }; Returns: boolean }
       reconcile_subscription_usage: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           new_managers: number
           new_workers: number
@@ -1297,16 +1331,13 @@ export type Database = {
         Args: { check_org_id: string }
         Returns: boolean
       }
-      user_is_worker: {
-        Args: { check_worker_id: string }
-        Returns: boolean
-      }
+      user_is_worker: { Args: { check_worker_id: string }; Returns: boolean }
       user_is_worker_in_org: {
         Args: { check_org_id: string }
         Returns: boolean
       }
       validate_subscription_counts: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           expected_managers: number
           expected_workers: number
