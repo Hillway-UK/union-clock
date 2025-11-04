@@ -147,6 +147,51 @@ export default function ClockScreen() {
     };
   }, []);
 
+  // Real-time clock entries listener for auto-clockouts
+  useEffect(() => {
+    if (!worker?.id) return;
+    
+    const channel = supabase
+      .channel('clock-entries-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'clock_entries',
+          filter: `worker_id=eq.${worker.id}`
+        },
+        (payload) => {
+          console.log('🔔 Clock entry change detected:', payload);
+          
+          const updatedEntry = payload.new;
+          
+          // If clocked out, clear current entry
+          if (updatedEntry.clock_out) {
+            console.log('✅ Auto clock-out detected, refreshing UI');
+            setCurrentEntry(null);
+            setCurrentShiftExpenses([]);
+            
+            if (updatedEntry.auto_clocked_out) {
+              const clockOutType = updatedEntry.auto_clockout_type || 'system';
+              toast.info(
+                `You were automatically clocked out (${clockOutType}). Check notifications for details.`,
+                { duration: 8000 }
+              );
+            }
+          } else {
+            // Still clocked in, refresh the entry
+            checkCurrentStatus();
+          }
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [worker?.id]);
+
   const loadJobs = async (showToast = false) => {
     const { data, error } = await supabase
       .from('jobs')
@@ -313,24 +358,62 @@ export default function ClockScreen() {
 
   const checkCurrentStatus = async () => {
     const workerData = JSON.parse(localStorage.getItem('worker') || '{}');
-    console.log('🔧 DEBUG: Checking current status for worker:', workerData.id);
+    console.log('🔧 DEBUG: Checking status for worker:', workerData.id);
     
-    const { data } = await supabase
-      .from('clock_entries')
-      .select('*, jobs(name)')
-      .eq('worker_id', workerData.id)
-      .is('clock_out', null)
-      .single();
+    if (!workerData.id) {
+      console.error('❌ ERROR: No worker ID found in localStorage');
+      return;
+    }
     
-    console.log('🔧 DEBUG: Current entry data:', data);
-    setCurrentEntry(data);
-    
-    // Fetch expenses for current shift if clocked in
-    if (data) {
-      console.log('✅ Worker is clocked in, fetching expenses for entry:', data.id);
-      fetchCurrentShiftExpenses(data.id);
-    } else {
-      console.log('⚠️  Worker is not clocked in');
+    try {
+      // Check for multiple open entries first
+      const { data: allOpen, error: countError } = await supabase
+        .from('clock_entries')
+        .select('id, clock_in, job_id')
+        .eq('worker_id', workerData.id)
+        .is('clock_out', null);
+      
+      if (countError) {
+        console.error('❌ ERROR checking clock entries:', countError);
+        toast.error('Failed to check clock status');
+        return;
+      }
+      
+      console.log(`📊 Found ${allOpen?.length || 0} open clock entries`);
+      
+      if (allOpen && allOpen.length > 1) {
+        console.warn('⚠️  WARNING: Multiple open clock entries detected!', allOpen);
+        toast.error('Multiple open shifts detected. Please contact support.');
+      }
+      
+      // Get the most recent open entry
+      const { data, error } = await supabase
+        .from('clock_entries')
+        .select('*, jobs(name)')
+        .eq('worker_id', workerData.id)
+        .is('clock_out', null)
+        .order('clock_in', { ascending: false })
+        .maybeSingle();
+      
+      if (error) {
+        console.error('❌ ERROR fetching current entry:', error);
+        toast.error('Failed to load clock status');
+        return;
+      }
+      
+      console.log('🔧 DEBUG: Current entry:', data);
+      setCurrentEntry(data);
+      
+      if (data) {
+        console.log('✅ Worker is clocked in, fetching expenses');
+        fetchCurrentShiftExpenses(data.id);
+      } else {
+        console.log('ℹ️  Worker is clocked out');
+        setCurrentShiftExpenses([]);
+      }
+    } catch (err) {
+      console.error('❌ EXCEPTION in checkCurrentStatus:', err);
+      toast.error('Error checking clock status');
     }
   };
 
@@ -480,6 +563,20 @@ export default function ClockScreen() {
     setLoading(true);
     
     try {
+      // Check for existing open entries before clocking in
+      const { data: existingOpen } = await supabase
+        .from('clock_entries')
+        .select('id, clock_in')
+        .eq('worker_id', worker.id)
+        .is('clock_out', null)
+        .maybeSingle();
+
+      if (existingOpen) {
+        toast.error('You already have an open clock entry. Please clock out first.');
+        setLoading(false);
+        return;
+      }
+      
       // Check geofence
       const job = jobs.find(j => j.id === selectedJobId);
       if (!job) {
@@ -596,6 +693,19 @@ export default function ClockScreen() {
         toast.error('Failed to clock out: ' + error.message);
         return;
       }
+      
+      // Log clock-out action to audit trail (will work after migration is approved)
+      // await supabase.from('clock_entry_audit').insert({
+      //   clock_entry_id: currentEntry.id,
+      //   worker_id: worker.id,
+      //   action: 'clock_out',
+      //   triggered_by: 'manual',
+      //   metadata: {
+      //     distance_from_site: distance,
+      //     location: { lat: location.lat, lng: location.lng }
+      //   }
+      // });
+      
       
       // Store completed entry for expense dialog
       setCompletedClockEntry({

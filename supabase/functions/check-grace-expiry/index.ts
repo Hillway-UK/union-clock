@@ -40,6 +40,7 @@ Deno.serve(async (req) => {
       .from("geofence_events")
       .select("id, worker_id, clock_entry_id, latitude, longitude, accuracy, distance_from_center, job_radius, safe_out_threshold, timestamp")
       .eq("event_type", "exit_detected")
+      .eq("processed", false)
       .lt("timestamp", cutoffTime);
 
     if (exitError) throw exitError;
@@ -174,6 +175,12 @@ Deno.serve(async (req) => {
         timestamp: clockOutTime,
       });
 
+      // Mark this exit_detected event as processed
+      await supabase
+        .from("geofence_events")
+        .update({ processed: true })
+        .eq("id", exit.id);
+
       // 8️⃣ Record audit log
       await supabase.from("auto_clockout_audit").insert({
         worker_id: exit.worker_id,
@@ -201,6 +208,21 @@ Deno.serve(async (req) => {
 
       console.log(`✅ Auto-clockout completed for ${exit.worker_id} (${exit.clock_entry_id})`);
       processedCount++;
+    }
+
+    // Cleanup stale exit_detected events (older than 24 hours)
+    const staleThreshold = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+    const { error: staleError } = await supabase
+      .from("geofence_events")
+      .update({ processed: true })
+      .eq("event_type", "exit_detected")
+      .eq("processed", false)
+      .lt("timestamp", staleThreshold);
+
+    if (staleError) {
+      console.error("Failed to cleanup stale events:", staleError);
+    } else {
+      console.log("Stale exit_detected events marked as processed");
     }
 
     return new Response(JSON.stringify({ status: "processed", count: processedCount }), {
