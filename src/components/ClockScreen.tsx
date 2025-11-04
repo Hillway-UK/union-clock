@@ -694,17 +694,17 @@ export default function ClockScreen() {
         return;
       }
       
-      // Log clock-out action to audit trail (will work after migration is approved)
-      // await supabase.from('clock_entry_audit').insert({
-      //   clock_entry_id: currentEntry.id,
-      //   worker_id: worker.id,
-      //   action: 'clock_out',
-      //   triggered_by: 'manual',
-      //   metadata: {
-      //     distance_from_site: distance,
-      //     location: { lat: location.lat, lng: location.lng }
-      //   }
-      // });
+      // Log clock-out action to audit trail
+      await supabase.from('clock_entry_audit').insert({
+        clock_entry_id: currentEntry.id,
+        worker_id: worker.id,
+        action: 'clock_out',
+        triggered_by: 'manual',
+        metadata: {
+          distance_from_site: distance,
+          location: { lat: location.lat, lng: location.lng }
+        }
+      });
       
       
       // Store completed entry for expense dialog

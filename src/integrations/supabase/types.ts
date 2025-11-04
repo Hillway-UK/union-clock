@@ -312,6 +312,57 @@ export type Database = {
           },
         ]
       }
+      clock_entry_audit: {
+        Row: {
+          action: string
+          clock_entry_id: string
+          created_at: string | null
+          id: string
+          ip_address: string | null
+          metadata: Json | null
+          triggered_by: string
+          user_agent: string | null
+          worker_id: string
+        }
+        Insert: {
+          action: string
+          clock_entry_id: string
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          triggered_by: string
+          user_agent?: string | null
+          worker_id: string
+        }
+        Update: {
+          action?: string
+          clock_entry_id?: string
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          triggered_by?: string
+          user_agent?: string | null
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clock_entry_audit_clock_entry_id_fkey"
+            columns: ["clock_entry_id"]
+            isOneToOne: false
+            referencedRelation: "clock_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clock_entry_audit_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clock_entry_history: {
         Row: {
           amendment_id: string | null
@@ -471,6 +522,7 @@ export type Database = {
           latitude: number
           longitude: number
           metadata: Json | null
+          processed: boolean | null
           safe_out_threshold: number
           shift_date: string
           timestamp: string
@@ -487,6 +539,7 @@ export type Database = {
           latitude: number
           longitude: number
           metadata?: Json | null
+          processed?: boolean | null
           safe_out_threshold: number
           shift_date: string
           timestamp: string
@@ -503,6 +556,7 @@ export type Database = {
           latitude?: number
           longitude?: number
           metadata?: Json | null
+          processed?: boolean | null
           safe_out_threshold?: number
           shift_date?: string
           timestamp?: string
