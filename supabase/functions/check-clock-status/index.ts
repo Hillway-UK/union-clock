@@ -640,7 +640,10 @@ async function sendNotification(
   try {
     // Generate dedupe key for idempotency
     const dateStr = shiftDate ? shiftDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
-    const dedupeKey = `${workerId}:${dateStr}:${type}`;
+    // Unified dedupe key for all auto-clockout types (ensures only 1 notification per day)
+    const dedupeKey = type.includes('auto_clockout') || type.includes('fallback')
+      ? `${workerId}:${dateStr}:auto_clockout`
+      : `${workerId}:${dateStr}:${type}`;
 
     // Check if already sent (idempotency)
     const { data: existing } = await supabase

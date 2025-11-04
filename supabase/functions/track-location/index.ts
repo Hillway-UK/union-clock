@@ -317,8 +317,9 @@ Deno.serve(async (req) => {
       month: 'short'
     }).format(clockOutTime);
 
-    // Generate dedupe key for idempotency
-    const dedupeKey = `${payload.worker_id}:${payload.clock_entry_id}:geofence_auto_clockout`;
+    // Generate dedupe key for idempotency (unified across all auto-clockout types)
+    const clockInDate = new Date(clockOutTime).toISOString().split('T')[0];
+    const dedupeKey = `${payload.worker_id}:${clockInDate}:auto_clockout`;
 
     await supabase.from('notifications').insert({
       worker_id: payload.worker_id,
