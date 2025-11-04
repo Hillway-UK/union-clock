@@ -435,14 +435,29 @@ async function handleAutoClockOut(
     await createAudit(supabase, worker.id, siteDate, true, 'OK');
 
     // Send confirmation with worker's shift_end
+    // Format the clock-out time properly
+    const clockOutFormatted = new Intl.DateTimeFormat('en-GB', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      day: 'numeric',
+      month: 'short'
+    }).format(clockOutTime);
+
     await sendNotification(
       supabase,
       worker.id,
-      'Auto Clocked-Out',
-      `You were auto clocked-out at ${currentTime} (30 minutes after ${worker.shift_end} shift end).`,
-      'auto_clockout_confirm',
+      '⚠️ Auto Clocked-Out: Shift Ended',
+      `You were automatically clocked out at ${clockOutFormatted} because you did not clock out by your scheduled shift end time (${worker.shift_end}).\n\n📅 Reason: Shift Time Exceeded\n⏰ Clock-Out Time: ${clockOutFormatted}\n⏱️ Your Shift End: ${worker.shift_end}\n\nIf you worked longer than your shift, please submit a Time Amendment from your timesheet.`,
+      'time_based_auto_clockout',
       siteDate
     );
+
+    console.log(`✉️ Notification sent to ${worker.name}:`, {
+      title: 'Auto Clocked-Out: Shift Ended',
+      clockOutTime: clockOutFormatted,
+      shiftEnd: worker.shift_end
+    });
 
     // Cancel any remaining clock-out reminders
     await cancelNotifications(supabase, worker.id, siteDate, `clock_out_.*_shift${worker.shift_end.replace(':', '')}`);

@@ -308,14 +308,28 @@ Deno.serve(async (req) => {
     });
 
     // 13. Send notification
+    // Format timestamp in a more complete format (e.g., "2:45 PM on 4 Nov")
+    const clockOutFormatted = new Intl.DateTimeFormat('en-GB', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      day: 'numeric',
+      month: 'short'
+    }).format(clockOutTime);
+
     await supabase.from('notifications').insert({
       worker_id: payload.worker_id,
-      title: 'Auto Clocked-Out (Left Site)',
-      body: `You were auto-clocked out at ${clockOutTime.toLocaleTimeString()} when you left the job site. Need a correction? Submit a Time Amendment.`,
+      title: '⚠️ Auto Clocked-Out: Left Job Site',
+      body: `You were automatically clocked out at ${clockOutFormatted} because you left the job site geofence during the last hour of your shift.\n\n📍 Reason: Geofence Exit\n⏰ Clock-Out Time: ${clockOutFormatted}\n\nIf this was incorrect, please submit a Time Amendment from your timesheet.`,
       type: 'geofence_auto_clockout',
       created_at: new Date().toISOString()
     });
 
+    console.log(`✉️ Notification sent to worker ${payload.worker_id}:`, {
+      title: 'Auto Clocked-Out: Left Job Site',
+      clockOutTime: clockOutFormatted,
+      reason: 'geofence_exit'
+    });
     console.log('Geofence auto-clock-out completed successfully');
 
     return new Response(JSON.stringify({ 
