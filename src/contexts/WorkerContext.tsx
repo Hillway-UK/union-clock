@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
 
 interface Worker {
   id: string;
@@ -54,7 +53,6 @@ export const WorkerProvider: React.FC<WorkerProviderProps> = ({ children }) => {
   const [worker, setWorker] = useState<Worker | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const navigate = useNavigate();
 
   const fetchWorker = async () => {
     try {
@@ -65,7 +63,7 @@ export const WorkerProvider: React.FC<WorkerProviderProps> = ({ children }) => {
       
       if (!user) {
         console.warn('⚠️ No authenticated user found');
-        navigate('/login');
+        setLoading(false);
         return;
       }
 
@@ -108,14 +106,14 @@ export const WorkerProvider: React.FC<WorkerProviderProps> = ({ children }) => {
 
       if (!workerData) {
         console.warn('⚠️ Worker not found');
-        navigate('/login');
+        setLoading(false);
         return;
       }
 
       if (!workerData.is_active) {
         console.warn('⚠️ Worker account is inactive');
         await supabase.auth.signOut();
-        navigate('/login');
+        setLoading(false);
         return;
       }
 

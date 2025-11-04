@@ -29,8 +29,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <WorkerProvider>
-            <Routes>
+          <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/reset-password" element={<ResetPassword />} />
@@ -38,7 +37,9 @@ const App = () => (
               path="/clock" 
               element={
                 <ProtectedRoute>
-                  <ClockScreen />
+                  <WorkerProvider>
+                    <ClockScreen />
+                  </WorkerProvider>
                 </ProtectedRoute>
               } 
             />
@@ -46,7 +47,9 @@ const App = () => (
               path="/profile" 
               element={
                 <ProtectedRoute>
-                  <Profile />
+                  <WorkerProvider>
+                    <Profile />
+                  </WorkerProvider>
                 </ProtectedRoute>
               } 
             />
@@ -54,7 +57,9 @@ const App = () => (
               path="/help" 
               element={
                 <ProtectedRoute>
-                  <Help />
+                  <WorkerProvider>
+                    <Help />
+                  </WorkerProvider>
                 </ProtectedRoute>
               } 
             />
@@ -62,14 +67,15 @@ const App = () => (
               path="/timesheets" 
               element={
                 <ProtectedRoute>
-                  <Timesheets />
+                  <WorkerProvider>
+                    <Timesheets />
+                  </WorkerProvider>
                 </ProtectedRoute>
               } 
             />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
-            </Routes>
-          </WorkerProvider>
+          </Routes>
         </BrowserRouter>
       </div>
     </UpdateProvider>
