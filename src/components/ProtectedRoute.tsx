@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import FirstLoginPasswordDialog from '@/components/FirstLoginPasswordDialog';
+import BrandedLoadingScreen from '@/components/BrandedLoadingScreen';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -116,14 +117,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   }, [user, loading]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
+    return <BrandedLoadingScreen message="Loading your dashboard..." showLogo={true} />;
   }
 
   if (!user) {

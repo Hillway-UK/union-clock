@@ -11,6 +11,7 @@ import PWAInstallDialog from '@/components/PWAInstallDialog';
 import NotificationPanel from '@/components/NotificationPanel';
 import { useWorker } from '@/contexts/WorkerContext';
 import { useUpdate } from '@/contexts/UpdateContext';
+import BrandedLoadingScreen from '@/components/BrandedLoadingScreen';
 
 interface Worker {
   id: string;
@@ -79,6 +80,17 @@ export default function ClockScreen() {
   const [showPWADialog, setShowPWADialog] = useState(false);
   const [isTrackingLocation, setIsTrackingLocation] = useState(false);
   const locationIntervalRef = useRef<number | null>(null);
+
+  // Show loading screen while worker data is loading
+  if (workerLoading || !contextWorker) {
+    return (
+      <BrandedLoadingScreen 
+        message="Loading your dashboard..." 
+        showLogo={true}
+        organizationLogoUrl={contextWorker?.organizations?.logo_url}
+      />
+    );
+  }
 
   // Set worker from context
   useEffect(() => {

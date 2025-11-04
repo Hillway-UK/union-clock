@@ -10,6 +10,7 @@ import { Loader2, AlertCircle, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import OrganizationLogo from '@/components/OrganizationLogo';
+import BrandedLoadingScreen from '@/components/BrandedLoadingScreen';
 
 const emailSchema = z.object({
   email: z.string().email('Please enter a valid email address')
@@ -87,7 +88,7 @@ export default function Login() {
         console.log('✅ Authentication successful for user:', user.email);
         
         // Add a small delay to let session fully stabilize after password reset
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 200));
         
         // Verify session is established
         const { data: { session } } = await supabase.auth.getSession();
@@ -145,8 +146,9 @@ export default function Login() {
         
         console.log('✅ Login complete, redirecting to clock screen');
         toast.success('Welcome to AutoTime!', {
-          description: 'Login successful',
-          className: 'bg-success text-success-foreground border-l-4 border-black'
+          description: 'Loading your dashboard...',
+          className: 'bg-success text-success-foreground border-l-4 border-black',
+          duration: 1000
         });
         navigate('/clock', { replace: true });
       }
@@ -212,14 +214,7 @@ export default function Login() {
 
   // Show loading while checking authentication
   if (checkingAuth) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black mx-auto mb-4"></div>
-          <p className="text-gray-600">Checking authentication...</p>
-        </div>
-      </div>
-    );
+    return <BrandedLoadingScreen message="Checking authentication..." />;
   }
 
   return (
