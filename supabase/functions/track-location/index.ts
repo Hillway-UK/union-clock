@@ -317,11 +317,15 @@ Deno.serve(async (req) => {
       month: 'short'
     }).format(clockOutTime);
 
+    // Generate dedupe key for idempotency
+    const dedupeKey = `${payload.worker_id}:${payload.clock_entry_id}:geofence_auto_clockout`;
+
     await supabase.from('notifications').insert({
       worker_id: payload.worker_id,
       title: '⚠️ Auto Clocked-Out: Left Job Site',
       body: `You were automatically clocked out at ${clockOutFormatted} because you left the job site geofence during the last hour of your shift.\n\n📍 Reason: Geofence Exit\n⏰ Clock-Out Time: ${clockOutFormatted}\n\nIf this was incorrect, please submit a Time Amendment from your timesheet.`,
       type: 'geofence_auto_clockout',
+      dedupe_key: dedupeKey,
       created_at: new Date().toISOString()
     });
 
