@@ -715,14 +715,14 @@ export default function ClockScreen() {
         within_fence: distance <= job.geofence_radius
       });
 
-      if (distance > job.geofence_radius) {
-        toast.error(`You must be within ${job.geofence_radius}m of the job site. You are ${Math.round(distance)}m away.`, {
-          description: 'Move closer to the job site to clock in.',
-          duration: 6000
-        });
-        setLoading(false);
-        return;
-      }
+    if (distance > job.geofence_radius) {
+      toast.error(`You are ${Math.round(distance)}m away from the job site`, {
+        description: `Required: Within ${job.geofence_radius}m • GPS accuracy: ${Math.round(freshLocation.accuracy)}m`,
+        duration: 6000
+      });
+      setLoading(false);
+      return;
+    }
       
       // Take photo
       const photoBlob = await capturePhoto();
