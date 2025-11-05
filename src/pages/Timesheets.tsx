@@ -202,7 +202,36 @@ export default function Timesheets() {
     return differenceInMinutes(parseISO(clockOut), parseISO(clockIn)) / 60;
   };
 
+  // Helper function to check if entry should be counted in totals
+  const shouldCountInTotal = (entry: any) => {
+    // Don't count pending or rejected overtime
+    if (entry.is_overtime && entry.ot_status !== 'approved') {
+      return false;
+    }
+    return true;
+  };
+
+  // Helper function to get OT status badge
+  const getOTStatusBadge = (entry: any) => {
+    if (!entry.is_overtime) return null;
+
+    const statusConfig = {
+      pending: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Pending OT' },
+      approved: { bg: 'bg-green-100', text: 'text-green-800', label: 'Approved OT' },
+      rejected: { bg: 'bg-red-100', text: 'text-red-800', label: 'Rejected OT' },
+    };
+
+    const config = statusConfig[entry.ot_status as keyof typeof statusConfig] || statusConfig.pending;
+
+    return (
+      <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded ${config.bg} ${config.text} ml-2`}>
+        {config.label}
+      </span>
+    );
+  };
+
   const weeklyTotal = entries.reduce((total, entry) => {
+    if (!shouldCountInTotal(entry)) return total;
     return total + calculateHours(entry.clock_in, entry.clock_out);
   }, 0);
 
@@ -211,6 +240,7 @@ export default function Timesheets() {
   
   const calculateWeeklyExpenses = () => {
     return entries.reduce((total, entry) => {
+      if (!shouldCountInTotal(entry)) return total;
       if (entry.additional_costs && Array.isArray(entry.additional_costs)) {
         return total + entry.additional_costs.reduce((sum: number, cost: any) => 
           sum + parseFloat(cost.amount), 0);
@@ -222,8 +252,10 @@ export default function Timesheets() {
   const calculateWeeklyTotalPay = () => calculateWeeklyHoursPay() + calculateWeeklyExpenses();
 
   const calculateDayHours = (dayEntries: any[]) => {
-    return dayEntries.reduce((total, entry) => 
-      total + calculateHours(entry.clock_in, entry.clock_out), 0);
+    return dayEntries.reduce((total, entry) => {
+      if (!shouldCountInTotal(entry)) return total;
+      return total + calculateHours(entry.clock_in, entry.clock_out);
+    }, 0);
   };
 
   const calculateDayHoursPay = (dayEntries: any[]) => {
@@ -232,6 +264,7 @@ export default function Timesheets() {
 
   const calculateDayExpenses = (dayEntries: any[]) => {
     return dayEntries.reduce((total, entry) => {
+      if (!shouldCountInTotal(entry)) return total;
       if (entry.additional_costs && Array.isArray(entry.additional_costs)) {
         return total + entry.additional_costs.reduce((sum: number, cost: any) => 
           sum + parseFloat(cost.amount), 0);
@@ -785,9 +818,12 @@ export default function Timesheets() {
                     <div key={entry.id} className="p-4">
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
-                          <p className="font-medium text-gray-900">
-                            {entry.jobs?.name || 'Unknown Job'}
-                          </p>
+                          <div className="flex items-center">
+                            <p className="font-medium text-gray-900">
+                              {entry.jobs?.name || 'Unknown Job'}
+                            </p>
+                            {getOTStatusBadge(entry)}
+                          </div>
                           <p className="text-sm text-gray-600">
                             {format(new Date(entry.clock_in), 'h:mm a')} - 
                             {entry.clock_out 

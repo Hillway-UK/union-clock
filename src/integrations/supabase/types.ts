@@ -206,6 +206,7 @@ export type Database = {
           id: string
           is_overtime: boolean | null
           job_id: string
+          linked_shift_id: string | null
           manual_entry: boolean | null
           needs_approval: boolean | null
           notes: string | null
@@ -237,6 +238,7 @@ export type Database = {
           id?: string
           is_overtime?: boolean | null
           job_id: string
+          linked_shift_id?: string | null
           manual_entry?: boolean | null
           needs_approval?: boolean | null
           notes?: string | null
@@ -268,6 +270,7 @@ export type Database = {
           id?: string
           is_overtime?: boolean | null
           job_id?: string
+          linked_shift_id?: string | null
           manual_entry?: boolean | null
           needs_approval?: boolean | null
           notes?: string | null
@@ -294,6 +297,13 @@ export type Database = {
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clock_entries_linked_shift_id_fkey"
+            columns: ["linked_shift_id"]
+            isOneToOne: false
+            referencedRelation: "clock_entries"
             referencedColumns: ["id"]
           },
           {

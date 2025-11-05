@@ -47,6 +47,15 @@ verify_jwt = false
 [functions.check-grace-expiry]
 verify_jwt = false
 
+[functions.check-ot-autoclockout]
+verify_jwt = false
+
+[[edge_runtime.schedulers]]
+name = "check-ot-autoclockout"
+schedule = "*/5 * * * *"
+enabled = true
+region = "eu-west-1"
+
 [analytics]
 enabled = false
 port = 54327
