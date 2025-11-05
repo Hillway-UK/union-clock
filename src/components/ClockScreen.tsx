@@ -47,6 +47,7 @@ interface LocationData {
   lat: number;
   lng: number;
   accuracy: number;
+  timestamp: number; // Unix timestamp (milliseconds) when position was obtained
 }
 
 interface ExpenseType {
@@ -245,11 +246,14 @@ export default function ClockScreen() {
     console.log('Starting background location tracking...');
     setIsTrackingLocation(true);
 
-    // Send initial location
+    // Send initial location with fresh GPS
     navigator.geolocation.getCurrentPosition(
       (position) => sendLocationUpdate(position),
       (error) => console.error('Error getting location:', error),
-      { enableHighAccuracy: true }
+      { 
+        enableHighAccuracy: true,
+        maximumAge: 0  // Force fresh position for tracking
+      }
     );
 
     // Send location every 45 seconds
@@ -257,7 +261,10 @@ export default function ClockScreen() {
       navigator.geolocation.getCurrentPosition(
         (position) => sendLocationUpdate(position),
         (error) => console.error('Error getting location:', error),
-        { enableHighAccuracy: true }
+        { 
+          enableHighAccuracy: true,
+          maximumAge: 0  // Force fresh position for tracking
+        }
       );
     }, 45000); // 45 seconds
 
@@ -427,7 +434,8 @@ export default function ClockScreen() {
         setLocation({
           lat: position.coords.latitude,
           lng: position.coords.longitude,
-          accuracy: position.coords.accuracy
+          accuracy: position.coords.accuracy,
+          timestamp: position.timestamp
         });
       },
       (error) => {
@@ -437,9 +445,90 @@ export default function ClockScreen() {
       { 
         enableHighAccuracy: true,
         timeout: 10000,
-        maximumAge: 60000
+        maximumAge: 30000 // Reduced to 30 seconds
       }
     );
+  };
+
+  /**
+   * Request a FRESH GPS position with NO caching tolerance.
+   * Validates accuracy and timestamp freshness before resolving.
+   * Used for clock-in/clock-out security validation.
+   */
+  const requestFreshLocation = (): Promise<LocationData> => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocation is not supported by this browser'));
+        return;
+      }
+
+      console.log('🔍 Requesting FRESH GPS position for clock-in validation...');
+      
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const now = Date.now();
+          const positionAge = now - position.timestamp;
+          
+          console.log('📍 GPS Position received:', {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            timestamp: new Date(position.timestamp).toISOString(),
+            age_seconds: (positionAge / 1000).toFixed(1),
+            is_fresh: positionAge < 30000
+          });
+
+          // CRITICAL: Reject positions older than 30 seconds
+          if (positionAge > 30000) {
+            console.warn('⚠️  GPS position too old:', positionAge / 1000, 'seconds');
+            reject(new Error('GPS position is stale. Please wait for fresh location data.'));
+            return;
+          }
+
+          // CRITICAL: Reject positions with poor accuracy
+          if (position.coords.accuracy > 50) {
+            console.warn('⚠️  GPS accuracy too low:', position.coords.accuracy, 'meters');
+            reject(new Error(`GPS accuracy is ${Math.round(position.coords.accuracy)}m. Need ≤50m for clock-in.`));
+            return;
+          }
+
+          const locationData: LocationData = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            timestamp: position.timestamp
+          };
+
+          console.log('✅ Fresh GPS position validated successfully');
+          resolve(locationData);
+        },
+        (error) => {
+          console.error('❌ GPS error:', error);
+          let errorMessage = 'Unable to get your location. ';
+          
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              errorMessage += 'Location permission denied. Please enable location access.';
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMessage += 'Location information unavailable. Try moving to an area with better GPS signal.';
+              break;
+            case error.TIMEOUT:
+              errorMessage += 'Location request timed out. Please try again.';
+              break;
+            default:
+              errorMessage += 'An unknown error occurred.';
+          }
+          
+          reject(new Error(errorMessage));
+        },
+        {
+          enableHighAccuracy: true,  // Force GPS (not WiFi/cell tower)
+          timeout: 15000,            // 15 second timeout
+          maximumAge: 0              // 🔒 CRITICAL: NO CACHING - force fresh GPS fix
+        }
+      );
+    });
   };
 
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -554,14 +643,43 @@ export default function ClockScreen() {
   };
 
   const handleClockIn = async () => {
-    if (!selectedJobId || !location || !worker) {
-      toast.error('Please select a job and enable location');
+    if (!selectedJobId || !worker) {
+      toast.error('Please select a job');
       return;
     }
     
     setLoading(true);
     
     try {
+      // ========================================
+      // 🔒 SECURITY: Request FRESH GPS position
+      // ========================================
+      toast.info('Getting your current location...', {
+        description: 'Please wait for accurate GPS signal',
+        duration: 5000
+      });
+
+      let freshLocation: LocationData;
+      
+      try {
+        freshLocation = await requestFreshLocation();
+      } catch (locationError: any) {
+        toast.error('Location Required', {
+          description: locationError.message,
+          duration: 6000
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Update displayed location with fresh data
+      setLocation(freshLocation);
+
+      console.log('✅ Using fresh GPS for clock-in:', {
+        age_seconds: (Date.now() - freshLocation.timestamp) / 1000,
+        accuracy: freshLocation.accuracy
+      });
+
       // Check for existing open entries before clocking in
       const { data: existingOpen } = await supabase
         .from('clock_entries')
@@ -576,7 +694,7 @@ export default function ClockScreen() {
         return;
       }
       
-      // Check geofence
+      // Check geofence using FRESH location
       const job = jobs.find(j => j.id === selectedJobId);
       if (!job) {
         toast.error('Selected job not found');
@@ -585,14 +703,23 @@ export default function ClockScreen() {
       }
 
       const distance = calculateDistance(
-        location.lat,
-        location.lng,
+        freshLocation.lat,      // ✅ Using fresh GPS
+        freshLocation.lng,      // ✅ Using fresh GPS
         job.latitude,
         job.longitude
       );
       
+      console.log('🎯 Geofence validation:', {
+        distance: distance.toFixed(2) + 'm',
+        radius: job.geofence_radius + 'm',
+        within_fence: distance <= job.geofence_radius
+      });
+
       if (distance > job.geofence_radius) {
-        toast.error(`You must be within ${job.geofence_radius}m of the job site. You are ${Math.round(distance)}m away.`);
+        toast.error(`You must be within ${job.geofence_radius}m of the job site. You are ${Math.round(distance)}m away.`, {
+          description: 'Move closer to the job site to clock in.',
+          duration: 6000
+        });
         setLoading(false);
         return;
       }
@@ -601,7 +728,7 @@ export default function ClockScreen() {
       const photoBlob = await capturePhoto();
       const photoUrl = await uploadPhoto(photoBlob);
       
-      // Create clock entry
+      // Create clock entry with fresh location data
       const { data, error } = await supabase
         .from('clock_entries')
         .insert({
@@ -609,8 +736,8 @@ export default function ClockScreen() {
           job_id: selectedJobId,
           clock_in: new Date().toISOString(),
           clock_in_photo: photoUrl,
-          clock_in_lat: location.lat,
-          clock_in_lng: location.lng
+          clock_in_lat: freshLocation.lat,      // ✅ Fresh GPS
+          clock_in_lng: freshLocation.lng       // ✅ Fresh GPS
         })
         .select('*, jobs(name)')
         .single();
@@ -621,7 +748,9 @@ export default function ClockScreen() {
       }
       
       setCurrentEntry(data);
-      toast.success('Clocked in successfully!');
+      toast.success('Clocked in successfully!', {
+        description: `Location verified at ${Math.round(freshLocation.accuracy)}m accuracy`
+      });
     } catch (error) {
       console.error('Clock in error:', error);
       toast.error('Failed to clock in');
@@ -633,15 +762,38 @@ export default function ClockScreen() {
   const handleClockOut = async () => {
     if (!currentEntry || !worker) return;
     
-    // Check location is available
-    if (!location) {
-      toast.error('Location not available. Please enable location services.');
-      return;
-    }
-    
     setLoading(true);
     
     try {
+      // ========================================
+      // 🔒 SECURITY: Request FRESH GPS position
+      // ========================================
+      toast.info('Getting your current location...', {
+        description: 'Please wait for accurate GPS signal',
+        duration: 5000
+      });
+
+      let freshLocation: LocationData;
+      
+      try {
+        freshLocation = await requestFreshLocation();
+      } catch (locationError: any) {
+        toast.error('Location Required', {
+          description: locationError.message,
+          duration: 6000
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Update displayed location
+      setLocation(freshLocation);
+
+      console.log('✅ Using fresh GPS for clock-out:', {
+        age_seconds: (Date.now() - freshLocation.timestamp) / 1000,
+        accuracy: freshLocation.accuracy
+      });
+      
       // Get the job details to check geofence
       const job = jobs.find(j => j.id === currentEntry.job_id);
       if (!job) {
@@ -650,17 +802,26 @@ export default function ClockScreen() {
         return;
       }
       
-      // Calculate distance from job site
+      // Calculate distance from job site using FRESH location
       const distance = calculateDistance(
-        location.lat,
-        location.lng,
+        freshLocation.lat,      // ✅ Using fresh GPS
+        freshLocation.lng,      // ✅ Using fresh GPS
         job.latitude,
         job.longitude
       );
       
+      console.log('🎯 Geofence validation (clock-out):', {
+        distance: distance.toFixed(2) + 'm',
+        radius: job.geofence_radius + 'm',
+        within_fence: distance <= job.geofence_radius
+      });
+      
       // Validate geofence
       if (distance > job.geofence_radius) {
-        toast.error(`You must be within ${job.geofence_radius}m of the job site to clock out. You are ${Math.round(distance)}m away.`);
+        toast.error(`You must be within ${job.geofence_radius}m of the job site to clock out. You are ${Math.round(distance)}m away.`, {
+          description: 'Move closer to the job site to clock out.',
+          duration: 6000
+        });
         setLoading(false);
         return;
       }
@@ -680,8 +841,8 @@ export default function ClockScreen() {
         .update({
           clock_out: clockOut.toISOString(),
           clock_out_photo: photoUrl,
-          clock_out_lat: location?.lat,
-          clock_out_lng: location?.lng,
+          clock_out_lat: freshLocation.lat,
+          clock_out_lng: freshLocation.lng,
           total_hours: Math.round(hours * 100) / 100
         })
         .eq('id', currentEntry.id)
@@ -701,7 +862,7 @@ export default function ClockScreen() {
         triggered_by: 'manual',
         metadata: {
           distance_from_site: distance,
-          location: { lat: location.lat, lng: location.lng }
+          location: { lat: freshLocation.lat, lng: freshLocation.lng }
         }
       });
       
@@ -1000,11 +1161,47 @@ export default function ClockScreen() {
         {/* Location Status */}
         {location && (
           <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-center text-sm text-muted-foreground">
-                <MapPin className="w-4 h-4 mr-2 text-green-600" />
-                GPS Accuracy: {Math.round(location.accuracy)}m
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center text-muted-foreground">
+                  <MapPin className={`w-4 h-4 mr-2 ${
+                    location.timestamp && (Date.now() - location.timestamp) < 30000 
+                      ? 'text-green-600' 
+                      : 'text-yellow-600'
+                  }`} />
+                  GPS Accuracy: {Math.round(location.accuracy)}m
+                </div>
+                {location.timestamp && (
+                  <div className={`text-xs font-medium ${
+                    (Date.now() - location.timestamp) < 30000 
+                      ? 'text-green-600' 
+                      : 'text-yellow-600'
+                  }`}>
+                    {((Date.now() - location.timestamp) / 1000).toFixed(0)}s ago
+                  </div>
+                )}
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    const fresh = await requestFreshLocation();
+                    setLocation(fresh);
+                    toast.success('Location updated', {
+                      description: `Accuracy: ${Math.round(fresh.accuracy)}m`
+                    });
+                  } catch (error: any) {
+                    toast.error('Failed to update location', {
+                      description: error.message
+                    });
+                  }
+                }}
+                className="w-full"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh Location
+              </Button>
             </CardContent>
           </Card>
         )}
