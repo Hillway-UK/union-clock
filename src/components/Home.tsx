@@ -62,6 +62,6 @@ export default function Home() {
     return <Login />;
   }
 
-  // This should not be reached due to redirect, but just in case
-  return null;
+  // Show loading during navigation to prevent white screen
+  return <BrandedLoadingScreen message="Redirecting to dashboard..." />;
 }

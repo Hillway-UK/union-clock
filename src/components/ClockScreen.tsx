@@ -91,7 +91,6 @@ export default function ClockScreen() {
   useEffect(() => {
     const init = async () => {
       if (!contextWorker) return;
-      if (!contextWorker) return;
 
       // Load initial data
       loadJobs();

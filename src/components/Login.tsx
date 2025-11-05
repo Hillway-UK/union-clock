@@ -148,7 +148,7 @@ export default function Login() {
         toast.success('Welcome to AutoTime!', {
           description: 'Loading your dashboard...',
           className: 'bg-success text-success-foreground border-l-4 border-black',
-          duration: 1000
+          duration: 2000
         });
         navigate('/clock', { replace: true });
       }
