@@ -5,7 +5,7 @@ import { format, startOfWeek, endOfWeek, differenceInMinutes, parseISO, addDays 
 import { formatInTimeZone, toZonedTime } from 'date-fns-tz';
 
 const UK_TIMEZONE = 'Europe/London';
-import { Calendar, Clock, Edit2, Plus, ChevronLeft, ChevronRight, AlertCircle, DollarSign, ArrowLeft, Construction, Save } from 'lucide-react';
+import { Calendar, Clock, Edit2, Plus, ChevronLeft, ChevronRight, AlertCircle, DollarSign, ArrowLeft, Construction, Save, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -14,6 +14,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import OrganizationLogo from '@/components/OrganizationLogo';
 import { useWorker } from '@/contexts/WorkerContext';
+import TimesheetExportDialog from '@/components/TimesheetExportDialog';
+import { generateExcelExport, generatePDFExport, ExportOptions } from '@/services/timesheetExport';
 
 export default function Timesheets() {
   const navigate = useNavigate();
@@ -48,6 +50,10 @@ export default function Timesheets() {
   const [jobs, setJobs] = useState<any[]>([]);
   const [submittingManual, setSubmittingManual] = useState(false);
   const [worker, setWorker] = useState<any>(null);
+  
+  // Export state
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // Set worker data from context
   useEffect(() => {
@@ -629,6 +635,60 @@ export default function Timesheets() {
   // Amendment submission (alias for existing function)
   const submitAmendment = handleAmendmentSubmit;
 
+  // Export handler
+  const handleExport = async (
+    dateRange: { start: Date; end: Date; label: string },
+    format: 'excel' | 'pdf',
+    rangeType: 'weekly' | 'monthly' | 'custom'
+  ) => {
+    setExporting(true);
+    try {
+      // Fetch entries for the selected date range
+      const { data, error } = await supabase
+        .from('clock_entries')
+        .select(`
+          *,
+          jobs (name, code),
+          additional_costs (amount, description)
+        `)
+        .eq('worker_id', worker.id)
+        .gte('clock_in', dateRange.start.toISOString())
+        .lte('clock_in', dateRange.end.toISOString())
+        .order('clock_in', { ascending: true });
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        toast.error('No timesheet entries found for the selected date range');
+        setExporting(false);
+        return;
+      }
+
+      const exportOptions: ExportOptions = {
+        workerName: worker.name,
+        dateRange: dateRange.label,
+        rangeType,
+        organizationName,
+        organizationLogo: organizationLogoUrl || undefined,
+        hourlyRate: workerHourlyRate
+      };
+
+      if (format === 'excel') {
+        generateExcelExport(data, dateRange, exportOptions);
+      } else {
+        generatePDFExport(data, dateRange, exportOptions);
+      }
+
+      toast.success(`Timesheet exported successfully as ${format.toUpperCase()}`);
+      setShowExportDialog(false);
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Failed to export timesheet');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -681,6 +741,19 @@ export default function Timesheets() {
           >
             <ChevronRight className="h-5 w-5" />
           </button>
+        </div>
+
+        {/* Export Button */}
+        <div className="px-4 pb-3 flex justify-end">
+          <Button 
+            onClick={() => setShowExportDialog(true)}
+            variant="outline"
+            disabled={loading || entries.length === 0}
+            className="flex items-center gap-2"
+          >
+            <Download className="h-4 w-4" />
+            {exporting ? 'Exporting...' : 'Export Timesheet'}
+          </Button>
         </div>
       </div>
 
@@ -968,6 +1041,14 @@ export default function Timesheets() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Export Dialog */}
+      <TimesheetExportDialog
+        open={showExportDialog}
+        onClose={() => setShowExportDialog(false)}
+        onExport={handleExport}
+        exporting={exporting}
+      />
     </div>
   );
 }
