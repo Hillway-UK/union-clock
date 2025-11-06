@@ -36,7 +36,8 @@ Deno.serve(async (req) => {
       'overtime_rejected',
       'overtime_auto_clockout',
       'geofence_auto_clockout',
-      '12_hour_fallback_auto_clockout'
+      '12_hour_fallback_auto_clockout',
+      'time_based_auto_clockout'
     ];
 
     if (!validTypes.includes(payload.type)) {

@@ -49,7 +49,7 @@ interface Worker {
 
 interface GuardResult {
   canAutoClockOut: boolean;
-  reason: 'OK' | 'NO_CLOCK_IN' | 'NO_SHIFT' | 'ALREADY_CLOCKED_OUT' | 'ACTIVE_OVERTIME' | 'UNKNOWN';
+  reason: 'OK' | 'NO_CLOCK_IN' | 'NO_SHIFT' | 'ALREADY_CLOCKED_OUT' | 'ACTIVE_OVERTIME' | 'OT_ENTRY' | 'UNKNOWN';
 }
 
 interface ClockEntry {
@@ -57,6 +57,8 @@ interface ClockEntry {
   clock_in: string;
   clock_out: string | null;
   job_id: string;
+  is_overtime?: boolean;
+  auto_clockout_type?: string | null;
 }
 
 serve(async (req) => {
@@ -365,6 +367,13 @@ async function handleAutoClockOut(
     
     console.log(`Clock entry: Found (${entry.id}, clocked_in: ${entry.clock_in}, clocked_out: ${entry.clock_out})`);
     
+    // NEW: Skip if this is an OT entry (OT has its own auto-clockout system)
+    if (entry.is_overtime) {
+      console.log(`Entry ${entry.id} is an overtime entry, skipping time-based auto-clockout (handled by OT system)`);
+      await createAudit(supabase, worker.id, siteDate, false, 'OT_ENTRY');
+      continue;
+    }
+    
     // Run guard checks
     const checks = await runGuardChecks(supabase, worker.id, siteDate);
     console.log(`Guard checks: canAutoClockOut=${checks.canAutoClockOut}, reason=${checks.reason}`);
@@ -555,7 +564,7 @@ async function getTodayEntry(supabase: any, workerId: string, siteDate: Date): P
   // Query for entries on this date (comparing dates in UTC)
   const { data } = await supabase
     .from('clock_entries')
-    .select('id, clock_in, clock_out, job_id')
+    .select('id, clock_in, clock_out, job_id, is_overtime, auto_clockout_type')
     .eq('worker_id', workerId)
     .gte('clock_in', `${dateOnly}T00:00:00.000Z`)
     .lt('clock_in', `${dateOnly}T23:59:59.999Z`)
