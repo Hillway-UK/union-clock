@@ -6,6 +6,7 @@ const corsHeaders = {
 };
 
 const MAX_OT_HOURS = 3;
+const GRACE_PERIOD_MS = 5 * 60 * 1000; // 5 minutes
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -20,6 +21,10 @@ Deno.serve(async (req) => {
     console.log('=== CHECK-OT-AUTOCLOCKOUT INVOCATION ===');
 
     const now = new Date();
+    const cutoffTime = new Date(now.getTime() - GRACE_PERIOD_MS).toISOString();
+    console.log('Grace period cutoff:', cutoffTime);
+    console.log('Processing OT entries as of:', now.toISOString());
+    
     let processedCount = 0;
 
     // 1️⃣ Get all active OT entries
@@ -58,7 +63,7 @@ Deno.serve(async (req) => {
         clockOutTime = new Date(clockIn.getTime() + (MAX_OT_HOURS * 60 * 60 * 1000)).toISOString();
         console.log(`⏰ 3-hour OT limit reached for ${entry.id}`);
       } else {
-        // 3️⃣ Check for geofence exit
+        // 3️⃣ Check for geofence exit (with 5-minute grace period)
         const { data: exitEvent } = await supabase
           .from('geofence_events')
           .select('id, latitude, longitude, distance_from_center, timestamp')
@@ -66,14 +71,16 @@ Deno.serve(async (req) => {
           .eq('clock_entry_id', entry.id)
           .eq('event_type', 'exit_detected')
           .eq('processed', false)
+          .lt('timestamp', cutoffTime) // Only exits older than 5 minutes
           .order('timestamp', { ascending: false })
           .limit(1)
           .maybeSingle();
 
         if (exitEvent) {
+          const exitAge = (now.getTime() - new Date(exitEvent.timestamp).getTime()) / 1000 / 60; // minutes
           autoClockOutReason = 'ot_geofence_exit';
           clockOutTime = exitEvent.timestamp;
-          console.log(`🚶 Geofence exit detected for OT entry ${entry.id}`);
+          console.log(`🚶 Geofence exit detected for OT entry ${entry.id} (${exitAge.toFixed(1)} minutes ago, grace period: 5 min)`);
           
           // Mark exit event as processed
           await supabase
@@ -131,9 +138,14 @@ Deno.serve(async (req) => {
           hour12: true
         });
 
+        const clockOutDateFormatted = new Date(clockOutTime).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric'
+        });
+
         const notificationBody = autoClockOutReason === 'ot_3hour_limit'
-          ? `You were automatically clocked out after 3 hours of overtime at ${jobName}.\n\n⏰ Clock-Out Time: ${clockOutTimeFormatted}\n📅 Total OT Hours: ${displayHours.toFixed(2)}\n\nNeed more time? Submit a Time Amendment from your timesheet.`
-          : `You were automatically clocked out because you left the ${jobName} site during overtime.\n\n🚶 Reason: Left Job Site\n⏰ Clock-Out Time: ${clockOutTimeFormatted}\n📅 Total OT Hours: ${displayHours.toFixed(2)}\n\nNeed a correction? Submit a Time Amendment.`;
+          ? `You were automatically clocked out after 3 hours of overtime at ${jobName}.\n\n⏰ Clock-Out Time: ${clockOutTimeFormatted} on ${clockOutDateFormatted}\n📅 Total OT Hours: ${displayHours.toFixed(2)}\n\nℹ️ Maximum OT Duration: 3 hours\n\n📝 Need more time? Submit a Time Amendment from your timesheet to extend your overtime hours.`
+          : `You were automatically clocked out because you left the ${jobName} site during overtime.\n\n🚶 Reason: Left Job Site (Geofence)\n⏰ Exit Time: ${clockOutTimeFormatted} on ${clockOutDateFormatted}\n📅 Total OT Hours: ${displayHours.toFixed(2)}\n📍 Grace Period: 5 minutes\n\n📝 Need a correction? Submit a Time Amendment from your timesheet.`;
 
         await supabase.from('notifications').insert({
           worker_id: entry.worker_id,

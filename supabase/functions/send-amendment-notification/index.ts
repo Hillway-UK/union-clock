@@ -25,12 +25,23 @@ Deno.serve(async (req) => {
 
     const payload: NotificationPayload = await req.json();
     
-    console.log('Processing amendment notification:', payload);
+    console.log('Processing push notification:', payload);
 
-    // Only process amendment notifications
-    if (!['amendment_approved', 'amendment_rejected'].includes(payload.type)) {
+    // Process all notification types that need push delivery
+    const validTypes = [
+      'amendment_approved',
+      'amendment_rejected',
+      'overtime_pending',
+      'overtime_approved',
+      'overtime_rejected',
+      'overtime_auto_clockout',
+      'geofence_auto_clockout',
+      '12_hour_fallback_auto_clockout'
+    ];
+
+    if (!validTypes.includes(payload.type)) {
       return new Response(
-        JSON.stringify({ message: 'Not an amendment notification' }),
+        JSON.stringify({ message: 'Not a push notification type' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -64,7 +75,7 @@ Deno.serve(async (req) => {
       .update({ delivered_at: new Date().toISOString() })
       .eq('id', payload.notification_id);
 
-    console.log('Amendment notification processed successfully');
+    console.log('Push notification processed successfully for type:', payload.type);
 
     return new Response(
       JSON.stringify({ success: true, message: 'Notification processed' }),
