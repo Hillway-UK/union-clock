@@ -4,7 +4,21 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Camera, MapPin, Clock, LogOut, Loader2, User, HelpCircle, X, Check, Wallet, RefreshCw, Construction, FileText, Info } from 'lucide-react';
+import { Camera, MapPin, Clock, LogOut, Loader2, User, HelpCircle, X, Check, Wallet, RefreshCw, Construction, FileText, Info, ChevronsUpDown } from 'lucide-react';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import { toast } from 'sonner';
 import OrganizationLogo from '@/components/OrganizationLogo';
 import PWAInstallDialog from '@/components/PWAInstallDialog';
@@ -72,6 +86,8 @@ export default function ClockScreen() {
   const [loading, setLoading] = useState(false);
   const [location, setLocation] = useState<LocationData | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [jobSearchOpen, setJobSearchOpen] = useState(false);
+  const [jobSearchQuery, setJobSearchQuery] = useState('');
   
   // Expense management state
   const [selectedExpenses, setSelectedExpenses] = useState<string[]>([]);
@@ -1389,18 +1405,70 @@ export default function ClockScreen() {
                       <RefreshCw className={`w-4 h-4 ${refreshingJobs ? 'animate-spin' : ''}`} />
                     </Button>
                   </div>
-                  <Select value={selectedJobId} onValueChange={setSelectedJobId}>
-                    <SelectTrigger className="h-12">
-                      <SelectValue placeholder="Choose a job site" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {jobs.map(job => (
-                        <SelectItem key={job.id} value={job.id}>
-                          {job.name} ({job.code})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover open={jobSearchOpen} onOpenChange={setJobSearchOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={jobSearchOpen}
+                        className="h-12 w-full justify-between font-normal"
+                      >
+                        {selectedJobId
+                          ? (() => {
+                              const job = jobs.find((j) => j.id === selectedJobId);
+                              return job ? `${job.name} (${job.code})` : "Choose a job site";
+                            })()
+                          : "Choose a job site"}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                      <Command>
+                        <CommandInput 
+                          placeholder="Search job sites..." 
+                          value={jobSearchQuery}
+                          onValueChange={setJobSearchQuery}
+                        />
+                        <CommandList>
+                          <CommandEmpty>No job site found.</CommandEmpty>
+                          <CommandGroup>
+                            {jobs
+                              .filter(job => {
+                                const searchTerm = jobSearchQuery.toLowerCase();
+                                return (
+                                  job.name.toLowerCase().includes(searchTerm) ||
+                                  job.code.toLowerCase().includes(searchTerm)
+                                );
+                              })
+                              .map((job) => (
+                                <CommandItem
+                                  key={job.id}
+                                  value={job.id}
+                                  onSelect={(currentValue) => {
+                                    setSelectedJobId(currentValue === selectedJobId ? "" : currentValue);
+                                    setJobSearchOpen(false);
+                                    setJobSearchQuery('');
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      selectedJobId === job.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">{job.name}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {job.code}
+                                    </span>
+                                  </div>
+                                </CommandItem>
+                              ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                   {jobs.length === 0 && (
                     <p className="text-xs text-muted-foreground mt-2">
                       No job sites available. Try refreshing.
