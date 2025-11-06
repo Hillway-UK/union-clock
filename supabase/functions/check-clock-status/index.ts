@@ -49,7 +49,7 @@ interface Worker {
 
 interface GuardResult {
   canAutoClockOut: boolean;
-  reason: 'OK' | 'NO_CLOCK_IN' | 'NO_SHIFT' | 'ALREADY_CLOCKED_OUT' | 'UNKNOWN';
+  reason: 'OK' | 'NO_CLOCK_IN' | 'NO_SHIFT' | 'ALREADY_CLOCKED_OUT' | 'ACTIVE_OVERTIME' | 'UNKNOWN';
 }
 
 interface ClockEntry {
@@ -380,6 +380,21 @@ async function handleAutoClockOut(
     // Skip if already auto-clocked-out by geofence
     if (entry.auto_clockout_type === 'geofence') {
       console.log(`Worker ${worker.name} already auto-clocked-out by geofence, skipping time-based auto-clockout`);
+      continue;
+    }
+
+    // Check if worker has active overtime entry
+    const { data: activeOT } = await supabase
+      .from('clock_entries')
+      .select('id, is_overtime')
+      .eq('worker_id', worker.id)
+      .eq('is_overtime', true)
+      .is('clock_out', null)
+      .maybeSingle();
+
+    if (activeOT) {
+      console.log(`Worker ${worker.name} has active overtime entry (${activeOT.id}), skipping time-based auto-clockout for main shift`);
+      await createAudit(supabase, worker.id, siteDate, false, 'ACTIVE_OVERTIME');
       continue;
     }
 
