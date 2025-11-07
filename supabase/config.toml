@@ -52,7 +52,7 @@ verify_jwt = false
 
 [[edge_runtime.schedulers]]
 name = "check-ot-autoclockout"
-schedule = "*/5 * * * *"
+schedule = "* * * * *"
 enabled = true
 region = "eu-west-1"
 

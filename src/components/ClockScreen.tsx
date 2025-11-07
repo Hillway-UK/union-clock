@@ -1651,7 +1651,6 @@ export default function ClockScreen() {
           setLoading(false);
           setIsRequestingOT(false);
         }}
-        shiftEndTime={worker?.shift_end}
         isLoading={isRequestingOT}
       />
 
