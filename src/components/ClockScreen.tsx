@@ -1,33 +1,38 @@
-import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Camera, MapPin, Clock, LogOut, Loader2, User, HelpCircle, X, Check, Wallet, RefreshCw, Construction, FileText, Info, ChevronsUpDown } from 'lucide-react';
+import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  Camera,
+  MapPin,
+  Clock,
+  LogOut,
+  Loader2,
+  User,
+  HelpCircle,
+  X,
+  Check,
+  Wallet,
+  RefreshCw,
+  Construction,
+  FileText,
+  Info,
+  ChevronsUpDown,
+  Search,
+} from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { toast } from 'sonner';
-import OrganizationLogo from '@/components/OrganizationLogo';
-import PWAInstallDialog from '@/components/PWAInstallDialog';
-import NotificationPanel from '@/components/NotificationPanel';
-import OvertimeConfirmationDialog from '@/components/OvertimeConfirmationDialog';
-import { useWorker } from '@/contexts/WorkerContext';
-import { useUpdate } from '@/contexts/UpdateContext';
-import BrandedLoadingScreen from '@/components/BrandedLoadingScreen';
-import { NotificationService } from '@/services/notifications';
+import { toast } from "sonner";
+import OrganizationLogo from "@/components/OrganizationLogo";
+import PWAInstallDialog from "@/components/PWAInstallDialog";
+import NotificationPanel from "@/components/NotificationPanel";
+import OvertimeConfirmationDialog from "@/components/OvertimeConfirmationDialog";
+import { useWorker } from "@/contexts/WorkerContext";
+import { useUpdate } from "@/contexts/UpdateContext";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { NotificationService } from "@/services/notifications";
 
 interface Worker {
   id: string;
@@ -57,15 +62,13 @@ interface ClockEntry {
   clock_in: string;
   clock_out?: string;
   jobs: { name: string };
-  is_overtime?: boolean;
-  ot_status?: string;
 }
 
 interface LocationData {
   lat: number;
   lng: number;
   accuracy: number;
-  timestamp: number; // Unix timestamp (milliseconds) when position was obtained
+  timestamp?: number; // GPS timestamp in milliseconds
 }
 
 interface ExpenseType {
@@ -81,14 +84,13 @@ export default function ClockScreen() {
   const { triggerUpdate, updateAvailable } = useUpdate();
   const [worker, setWorker] = useState<Worker | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [selectedJobId, setSelectedJobId] = useState('');
+  const [selectedJobId, setSelectedJobId] = useState("");
   const [currentEntry, setCurrentEntry] = useState<ClockEntry | null>(null);
+  const [jobSearchOpen, setJobSearchOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [location, setLocation] = useState<LocationData | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [jobSearchOpen, setJobSearchOpen] = useState(false);
-  const [jobSearchQuery, setJobSearchQuery] = useState('');
-  
+
   // Expense management state
   const [selectedExpenses, setSelectedExpenses] = useState<string[]>([]);
   const [expenseTypes, setExpenseTypes] = useState<ExpenseType[]>([]);
@@ -105,11 +107,11 @@ export default function ClockScreen() {
   // Overtime state
   const [showOvertimeDialog, setShowOvertimeDialog] = useState(false);
   const [pendingOvertimeData, setPendingOvertimeData] = useState<{
-    jobId: string;
     photoUrl: string;
     location: LocationData;
+    jobId: string;
   } | null>(null);
-  const [isRequestingOT, setIsRequestingOT] = useState(false);
+  const [isRequestingOvertime, setIsRequestingOvertime] = useState(false);
 
   // Set worker from context
   useEffect(() => {
@@ -121,13 +123,14 @@ export default function ClockScreen() {
   useEffect(() => {
     const init = async () => {
       if (!contextWorker) return;
+      if (!contextWorker) return;
 
       // Load initial data
       loadJobs();
       checkCurrentStatus();
       requestLocation();
       fetchExpenseTypes();
-      
+
       // Check if worker has dismissed PWA dialog from database
       if (contextWorker && !contextWorker.pwa_install_info_dismissed) {
         setShowPWADialog(true);
@@ -146,28 +149,27 @@ export default function ClockScreen() {
     init();
   }, [contextWorker, navigate]);
 
-
   // Real-time jobs listener
   useEffect(() => {
     const channel = supabase
-      .channel('schema-db-changes')
+      .channel("schema-db-changes")
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: '*',
-          schema: 'public',
-          table: 'jobs'
+          event: "*",
+          schema: "public",
+          table: "jobs",
         },
         (payload) => {
-          console.log('Job change detected:', payload);
+          console.log("Job change detected:", payload);
           // Reload jobs when any change occurs
           loadJobs();
-          
+
           // Show toast notification for new jobs
-          if (payload.eventType === 'INSERT' && payload.new.is_active) {
+          if (payload.eventType === "INSERT" && payload.new.is_active) {
             toast.success(`New job available: ${payload.new.name}`);
           }
-        }
+        },
       )
       .subscribe();
 
@@ -176,107 +178,49 @@ export default function ClockScreen() {
     };
   }, []);
 
-  // Real-time clock entries listener for auto-clockouts
+  // Real-time clock entries listener - sync UI when auto-clocked out
   useEffect(() => {
     if (!worker?.id) return;
-    
-    const channel = supabase
-      .channel('clock-entries-changes')
+
+    console.log("🔧 Setting up real-time listener for clock_entries...");
+
+    const clockChannel = supabase
+      .channel("clock-entries-changes")
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'clock_entries',
-          filter: `worker_id=eq.${worker.id}`
+          event: "UPDATE",
+          schema: "public",
+          table: "clock_entries",
+          filter: `worker_id=eq.${worker.id}`,
         },
         (payload) => {
-          console.log('🔔 Clock entry change detected:', payload);
-          
-          const updatedEntry = payload.new;
-          
-          // If clocked out, clear current entry
-          if (updatedEntry.clock_out) {
-            console.log('✅ Auto clock-out detected, refreshing UI');
-            setCurrentEntry(null);
-            setCurrentShiftExpenses([]);
-            
-            if (updatedEntry.auto_clocked_out) {
-              const clockOutType = updatedEntry.auto_clockout_type || 'system';
-              toast.info(
-                `You were automatically clocked out (${clockOutType}). Check notifications for details.`,
-                { duration: 8000 }
-              );
-            }
-          } else {
-            // Still clocked in, refresh the entry
+          console.log("🔔 Clock entry updated:", payload);
+
+          // If an entry was auto-clocked out, refresh the status
+          if (payload.new?.auto_clocked_out) {
+            console.log("⚠️  Auto clock-out detected! Refreshing status...");
+            toast.warning("You were automatically clocked out");
             checkCurrentStatus();
           }
-        }
+        },
       )
       .subscribe();
-    
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(clockChannel);
     };
   }, [worker?.id]);
 
-  // Real-time listener for OT status changes
-  useEffect(() => {
-    if (!worker?.id || !currentEntry?.is_overtime) return;
-
-    const otChannel = supabase
-      .channel('ot-status-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'clock_entries',
-          filter: `id=eq.${currentEntry.id}`
-        },
-        (payload) => {
-          const newStatus = payload.new?.ot_status;
-          const oldStatus = payload.old?.ot_status;
-
-          if (newStatus !== oldStatus) {
-            if (newStatus === 'approved') {
-              toast.success('Your overtime has been approved!', {
-                description: 'Your OT hours will be added to your timesheet.',
-                duration: 6000
-              });
-              checkCurrentStatus(); // Refresh
-            } else if (newStatus === 'rejected') {
-              const reason = payload.new?.ot_approved_reason || 'No reason provided';
-              toast.error('Your overtime request was rejected', {
-                description: `Reason: ${reason}`,
-                duration: 8000
-              });
-              checkCurrentStatus();
-            }
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(otChannel);
-    };
-  }, [worker?.id, currentEntry?.id, currentEntry?.is_overtime]);
-
   const loadJobs = async (showToast = false) => {
-    const { data, error } = await supabase
-      .from('jobs')
-      .select('*')
-      .eq('is_active', true)
-      .order('name');
-      
+    const { data, error } = await supabase.from("jobs").select("*").eq("is_active", true).order("name");
+
     if (error) {
-      toast.error('Failed to load jobs');
-      console.error('Job loading error:', error);
+      toast.error("Failed to load jobs");
+      console.error("Job loading error:", error);
       return;
     }
-    
+
     setJobs(data || []);
     if (showToast) {
       toast.success(`${data?.length || 0} job sites loaded`);
@@ -297,46 +241,40 @@ export default function ClockScreen() {
     if (!currentEntry || !worker) return;
 
     try {
-      await supabase.functions.invoke('track-location', {
+      await supabase.functions.invoke("track-location", {
         body: {
           worker_id: worker.id,
           clock_entry_id: currentEntry.id,
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
           accuracy: position.coords.accuracy,
-          timestamp: new Date().toISOString()
-        }
+          timestamp: new Date().toISOString(),
+        },
       });
     } catch (error) {
-      console.error('Error sending location update:', error);
+      console.error("Error sending location update:", error);
     }
   };
 
   const startLocationTracking = () => {
     if (!worker?.shift_end || !currentEntry) return;
-    
-    console.log('Starting background location tracking...');
+
+    console.log("Starting background location tracking...");
     setIsTrackingLocation(true);
 
-    // Send initial location with fresh GPS
+    // Send initial location
     navigator.geolocation.getCurrentPosition(
       (position) => sendLocationUpdate(position),
-      (error) => console.error('Error getting location:', error),
-      { 
-        enableHighAccuracy: true,
-        maximumAge: 0  // Force fresh position for tracking
-      }
+      (error) => console.error("Error getting location:", error),
+      { enableHighAccuracy: true },
     );
 
     // Send location every 45 seconds
     const interval = window.setInterval(() => {
       navigator.geolocation.getCurrentPosition(
         (position) => sendLocationUpdate(position),
-        (error) => console.error('Error getting location:', error),
-        { 
-          enableHighAccuracy: true,
-          maximumAge: 0  // Force fresh position for tracking
-        }
+        (error) => console.error("Error getting location:", error),
+        { enableHighAccuracy: true },
       );
     }, 45000); // 45 seconds
 
@@ -344,7 +282,7 @@ export default function ClockScreen() {
   };
 
   const stopLocationTracking = () => {
-    console.log('Stopping background location tracking...');
+    console.log("Stopping background location tracking...");
     if (locationIntervalRef.current) {
       clearInterval(locationIntervalRef.current);
       locationIntervalRef.current = null;
@@ -354,13 +292,13 @@ export default function ClockScreen() {
 
   const checkIsInLastHourWindow = (shiftEnd: string): boolean => {
     const now = new Date();
-    const [shiftHour, shiftMin] = shiftEnd.split(':').map(Number);
-    
+    const [shiftHour, shiftMin] = shiftEnd.split(":").map(Number);
+
     const shiftEndTime = new Date();
     shiftEndTime.setHours(shiftHour, shiftMin, 0, 0);
-    
+
     const windowStart = new Date(shiftEndTime.getTime() - 60 * 60 * 1000); // 60 minutes before
-    
+
     return now >= windowStart && now <= shiftEndTime;
   };
 
@@ -368,7 +306,7 @@ export default function ClockScreen() {
   useEffect(() => {
     if (currentEntry && worker?.shift_end && !currentEntry.clock_out) {
       const isInLastHour = checkIsInLastHourWindow(worker.shift_end);
-      
+
       if (isInLastHour && !isTrackingLocation) {
         startLocationTracking();
       } else if (!isInLastHour && isTrackingLocation) {
@@ -387,28 +325,24 @@ export default function ClockScreen() {
 
   const fetchExpenseTypes = async () => {
     setLoadingExpenses(true);
-    console.log('🔧 DEBUG: Fetching expense types...');
+    console.log("🔧 DEBUG: Fetching expense types...");
     try {
-      const { data, error } = await supabase
-        .from('expense_types')
-        .select('*')
-        .eq('is_active', true)
-        .order('name');
-      
+      const { data, error } = await supabase.from("expense_types").select("*").eq("is_active", true).order("name");
+
       if (error) {
-        console.error('❌ ERROR fetching expense types:', error);
+        console.error("❌ ERROR fetching expense types:", error);
         return;
       }
-      
+
       if (data) {
-        console.log('✅ SUCCESS: Loaded expense types:', data.length, 'items');
-        console.log('Expense types data:', data);
+        console.log("✅ SUCCESS: Loaded expense types:", data.length, "items");
+        console.log("Expense types data:", data);
         setExpenseTypes(data);
       } else {
-        console.log('⚠️  No expense types data returned');
+        console.log("⚠️  No expense types data returned");
       }
     } catch (err) {
-      console.error('❌ EXCEPTION in fetchExpenseTypes:', err);
+      console.error("❌ EXCEPTION in fetchExpenseTypes:", err);
     } finally {
       setLoadingExpenses(false);
     }
@@ -417,157 +351,356 @@ export default function ClockScreen() {
   const fetchCurrentShiftExpenses = async (clockEntryId?: string) => {
     const entryId = clockEntryId || currentEntry?.id;
     if (!entryId) return;
-    
+
     try {
       const { data, error } = await supabase
-        .from('additional_costs')
-        .select('*, expense_types(name, amount)')
-        .eq('clock_entry_id', entryId);
-      
+        .from("additional_costs")
+        .select("*, expense_types(name, amount)")
+        .eq("clock_entry_id", entryId);
+
       if (!error && data) {
         setCurrentShiftExpenses(data);
       }
       return data || [];
     } catch (error) {
-      console.error('Error fetching shift expenses:', error);
+      console.error("Error fetching shift expenses:", error);
       return [];
     }
   };
 
   const checkCurrentStatus = async () => {
-    const workerData = JSON.parse(localStorage.getItem('worker') || '{}');
-    console.log('🔧 DEBUG: Checking status for worker:', workerData.id);
-    
-    if (!workerData.id) {
-      console.error('❌ ERROR: No worker ID found in localStorage');
-      return;
-    }
-    
     try {
-      // Check for multiple open entries first
-      const { data: allOpen, error: countError } = await supabase
-        .from('clock_entries')
-        .select('id, clock_in, job_id')
-        .eq('worker_id', workerData.id)
-        .is('clock_out', null);
-      
+      const workerData = JSON.parse(localStorage.getItem("worker") || "{}");
+      const workerId = workerData.id || worker?.id;
+
+      console.log("🔧 DEBUG: Checking current status for worker:", workerId);
+      console.log("🔧 DEBUG: Worker from localStorage:", workerData);
+      console.log("🔧 DEBUG: Worker from context:", worker?.id);
+
+      if (!workerId) {
+        console.error("❌ ERROR: No worker ID available");
+        return;
+      }
+
+      // First check how many open entries exist
+      const { data: allOpenEntries, error: countError } = await supabase
+        .from("clock_entries")
+        .select("id, clock_in, jobs(name)")
+        .eq("worker_id", workerId)
+        .is("clock_out", null)
+        .order("clock_in", { ascending: false });
+
       if (countError) {
-        console.error('❌ ERROR checking clock entries:', countError);
-        toast.error('Failed to check clock status');
+        console.error("❌ ERROR checking open entries:", countError);
         return;
       }
-      
-      console.log(`📊 Found ${allOpen?.length || 0} open clock entries`);
-      
-      if (allOpen && allOpen.length > 1) {
-        console.warn('⚠️  WARNING: Multiple open clock entries detected!', allOpen);
-        toast.error('Multiple open shifts detected. Please contact support.');
+
+      console.log("🔧 DEBUG: Found", allOpenEntries?.length || 0, "open clock entries");
+
+      if (allOpenEntries && allOpenEntries.length > 1) {
+        console.warn("⚠️  WARNING: Multiple open clock entries found! Taking most recent.");
+        console.log("Open entries:", allOpenEntries);
       }
-      
-      // Get the most recent open entry
-      const { data, error } = await supabase
-        .from('clock_entries')
-        .select('*, jobs(name)')
-        .eq('worker_id', workerData.id)
-        .is('clock_out', null)
-        .order('clock_in', { ascending: false })
+
+      // Use maybeSingle for safe handling - take most recent if multiple exist
+      const { data: currentEntryData, error: entryError } = await supabase
+        .from("clock_entries")
+        .select("*, jobs(name)")
+        .eq("worker_id", workerId)
+        .is("clock_out", null)
+        .order("clock_in", { ascending: false })
+        .limit(1)
         .maybeSingle();
-      
-      if (error) {
-        console.error('❌ ERROR fetching current entry:', error);
-        toast.error('Failed to load clock status');
+
+      if (entryError) {
+        console.error("❌ ERROR fetching current entry:", entryError);
         return;
       }
-      
-      console.log('🔧 DEBUG: Current entry:', data);
-      setCurrentEntry(data);
-      
-      if (data) {
-        console.log('✅ Worker is clocked in, fetching expenses');
-        fetchCurrentShiftExpenses(data.id);
+
+      console.log("🔧 DEBUG: Current entry data:", currentEntryData);
+      setCurrentEntry(currentEntryData);
+
+      // Fetch expenses for current shift if clocked in
+      if (currentEntryData) {
+        console.log("✅ Worker is clocked in, fetching expenses for entry:", currentEntryData.id);
+        fetchCurrentShiftExpenses(currentEntryData.id);
       } else {
-        console.log('ℹ️  Worker is clocked out');
-        setCurrentShiftExpenses([]);
+        console.log("⚠️  Worker is not clocked in");
       }
-    } catch (err) {
-      console.error('❌ EXCEPTION in checkCurrentStatus:', err);
-      toast.error('Error checking clock status');
+    } catch (error) {
+      console.error("❌ EXCEPTION in checkCurrentStatus:", error);
     }
   };
 
-  // Overtime helper functions
+  const requestLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported by this browser");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+          timestamp: position.timestamp,
+        });
+      },
+      (error) => {
+        toast.error("Location access is required to clock in");
+        console.error("Location error:", error);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0, // Always get fresh location, no cached data
+      },
+    );
+  };
+
+  // Request fresh location and validate it's recent and accurate
+  const requestFreshLocation = (): Promise<LocationData> => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("Geolocation is not supported by this browser"));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const locationData: LocationData = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            timestamp: position.timestamp,
+          };
+
+          // Validate timestamp is less than 30 seconds old
+          const now = Date.now();
+          const age = now - position.timestamp;
+
+          /*if (age > 30000) {
+            reject(new Error(`Location is too old (${Math.round(age / 1000)}s). Please try again.`));
+            return;
+          }*/
+
+          // Update state with fresh location (but don't check accuracy yet - we'll do that with distance)
+          setLocation(locationData);
+          resolve(locationData);
+        },
+        (error) => {
+          console.error("Location error:", error);
+          reject(new Error("Unable to get your location. Please enable location services."));
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0, // Force fresh location, no cached data
+        },
+      );
+    });
+  };
+
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371e3; // Earth's radius in meters
+    const φ1 = (lat1 * Math.PI) / 180;
+    const φ2 = (lat2 * Math.PI) / 180;
+    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c;
+  };
+
+  const capturePhoto = async (): Promise<Blob> => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "user",
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+        },
+      });
+
+      const video = document.createElement("video");
+      video.srcObject = stream;
+      video.style.position = "fixed";
+      video.style.top = "0";
+      video.style.left = "0";
+      video.style.width = "100%";
+      video.style.height = "100%";
+      video.style.objectFit = "cover";
+      video.style.zIndex = "9999";
+      video.style.backgroundColor = "black";
+      document.body.appendChild(video);
+
+      await video.play();
+
+      // Add capture button
+      const captureBtn = document.createElement("button");
+      captureBtn.innerHTML = "📸 Take Photo";
+      captureBtn.style.position = "fixed";
+      captureBtn.style.bottom = "20px";
+      captureBtn.style.left = "50%";
+      captureBtn.style.transform = "translateX(-50%)";
+      captureBtn.style.zIndex = "10000";
+      captureBtn.style.padding = "16px 32px";
+      captureBtn.style.backgroundColor = "#3B82F6";
+      captureBtn.style.color = "white";
+      captureBtn.style.border = "none";
+      captureBtn.style.borderRadius = "24px";
+      captureBtn.style.fontSize = "18px";
+      captureBtn.style.fontWeight = "600";
+      captureBtn.style.cursor = "pointer";
+      document.body.appendChild(captureBtn);
+
+      return new Promise((resolve, reject) => {
+        captureBtn.onclick = () => {
+          try {
+            const canvas = document.createElement("canvas");
+            canvas.width = 640;
+            canvas.height = 480;
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              ctx.drawImage(video, 0, 0, 640, 480);
+            }
+
+            canvas.toBlob(
+              (blob) => {
+                stream.getTracks().forEach((track) => track.stop());
+                document.body.removeChild(video);
+                document.body.removeChild(captureBtn);
+
+                if (blob) {
+                  resolve(blob);
+                } else {
+                  reject(new Error("Failed to capture photo"));
+                }
+              },
+              "image/jpeg",
+              0.8,
+            );
+          } catch (error) {
+            stream.getTracks().forEach((track) => track.stop());
+            document.body.removeChild(video);
+            document.body.removeChild(captureBtn);
+            reject(error);
+          }
+        };
+      });
+    } catch (error) {
+      toast.error("Camera access is required");
+      throw error;
+    }
+  };
+
+  const uploadPhoto = async (blob: Blob): Promise<string> => {
+    const fileName = `${worker?.id}/${Date.now()}.jpg`;
+    const { data, error } = await supabase.storage.from("clock-photos").upload(fileName, blob);
+
+    if (error) {
+      console.error("Upload error:", error);
+      throw error;
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("clock-photos").getPublicUrl(fileName);
+
+    return publicUrl;
+  };
+
+  // Check if current time is past shift end
   const isPastShiftEnd = (): boolean => {
     if (!worker?.shift_end) return false;
     
     const now = new Date();
-    const [shiftHour, shiftMin] = worker.shift_end.split(':').map(Number);
-    
+    const [hours, minutes] = worker.shift_end.split(':').map(Number);
     const shiftEndTime = new Date();
-    shiftEndTime.setHours(shiftHour, shiftMin, 0, 0);
+    shiftEndTime.setHours(hours, minutes, 0, 0);
     
     return now > shiftEndTime;
   };
 
+  // Get today's main shift entry (for linking OT)
   const getTodayMainShift = async (): Promise<string | null> => {
-    if (!worker) return null;
-    
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    const { data } = await supabase
-      .from('clock_entries')
-      .select('id')
-      .eq('worker_id', worker.id)
-      .eq('is_overtime', false)
-      .gte('clock_in', today.toISOString())
-      .lt('clock_in', tomorrow.toISOString())
-      .maybeSingle();
-    
-    return data?.id || null;
-  };
-
-  const createOvertimeEntry = async () => {
-    if (!pendingOvertimeData || !worker) return;
-
-    // Prevent double-submission
-    if (isRequestingOT) {
-      console.log('⚠️ OT request already in progress, ignoring duplicate click');
-      return;
-    }
-
-    setIsRequestingOT(true); // Lock the button
-
     try {
-      // Check for existing OT today BEFORE creating
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      
-      const { data: existingOT } = await supabase
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+
+      const { data, error } = await (supabase as any)
         .from('clock_entries')
         .select('id')
+        .eq('worker_id', worker?.id)
+        .eq('is_overtime', false)
+        .gte('clock_in', todayStart.toISOString())
+        .lte('clock_in', todayEnd.toISOString())
+        .order('clock_in', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error || !data) {
+        console.log('No main shift found for today');
+        return null;
+      }
+
+      return data.id;
+    } catch (error) {
+      console.error('Error getting today shift:', error);
+      return null;
+    }
+  };
+
+  // Create overtime clock entry
+  const createOvertimeEntry = async () => {
+    if (!pendingOvertimeData || !worker || isRequestingOvertime) return;
+
+    setIsRequestingOvertime(true);
+
+    try {
+      // Check if there's already an OT request for today
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+
+      const { data: existingOT, error: checkError } = await (supabase as any)
+        .from("clock_entries")
+        .select('id, ot_status')
         .eq('worker_id', worker.id)
         .eq('is_overtime', true)
-        .gte('clock_in', today.toISOString())
-        .lt('clock_in', tomorrow.toISOString())
+        .gte('clock_in', todayStart.toISOString())
+        .lte('clock_in', todayEnd.toISOString())
         .maybeSingle();
-      
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('Error checking existing OT:', checkError);
+        toast.error("Failed to verify overtime status");
+        setIsRequestingOvertime(false);
+        return;
+      }
+
       if (existingOT) {
-        toast.error('You already have an overtime request for today.');
+        const status = existingOT.ot_status === 'pending' ? 'pending approval' :
+                      existingOT.ot_status === 'approved' ? 'already approved' : 
+                      'already submitted';
+        toast.error(`You already have an overtime request for today (${status})`);
         setShowOvertimeDialog(false);
         setPendingOvertimeData(null);
+        setIsRequestingOvertime(false);
         setLoading(false);
-        setIsRequestingOT(false);
         return;
       }
 
       const linkedShiftId = await getTodayMainShift();
 
       const { data, error } = await supabase
-        .from('clock_entries')
+        .from("clock_entries")
         .insert({
           worker_id: worker.id,
           job_id: pendingOvertimeData.jobId,
@@ -580,510 +713,219 @@ export default function ClockScreen() {
           ot_requested_at: new Date().toISOString(),
           linked_shift_id: linkedShiftId,
         })
-        .select('*, jobs(name)')
+        .select("*, jobs(name)")
         .single();
 
       if (error) {
-        toast.error('Failed to create overtime entry: ' + error.message);
-        setLoading(false);
-        setIsRequestingOT(false);
+        toast.error("Failed to create overtime entry: " + error.message);
+        setIsRequestingOvertime(false);
         return;
       }
 
-      // Send notification via existing system
-      const shiftDate = new Date().toISOString().split('T')[0];
-      const dedupeKey = `${worker.id}:${shiftDate}:ot_request`;
-      
+      // Send notification
+      const dedupeKey = `ot_request_${worker.id}_${new Date().toISOString().split('T')[0]}`;
       await NotificationService.sendDualNotification(
         worker.id,
         'Overtime Request Submitted',
-        'Your overtime request is pending manager approval.\n\n⏰ Maximum Duration: 3 hours\n📍 Auto clock-out if you leave the site\n\nYour manager will review your request.',
+        'Your overtime request is pending manager approval.',
         'overtime_pending',
         dedupeKey
       );
 
       setCurrentEntry(data);
-      toast.success('Overtime requested! Awaiting manager approval.');
+      toast.success("Overtime requested! Awaiting manager approval.");
       setShowOvertimeDialog(false);
       setPendingOvertimeData(null);
-      setLoading(false);
-      setIsRequestingOT(false);
+      setIsRequestingOvertime(false);
     } catch (error) {
-      console.error('Error creating OT entry:', error);
-      toast.error('Failed to request overtime');
-      setLoading(false);
-      setIsRequestingOT(false);
+      console.error("Error creating OT entry:", error);
+      toast.error("Failed to request overtime");
+      setIsRequestingOvertime(false);
     }
-  };
-
-  const requestLocation = () => {
-    if (!navigator.geolocation) {
-      toast.error('Geolocation is not supported by this browser');
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLocation({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-          timestamp: position.timestamp
-        });
-      },
-      (error) => {
-        toast.error('Location access is required to clock in');
-        console.error('Location error:', error);
-      },
-      { 
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 30000 // Reduced to 30 seconds
-      }
-    );
-  };
-
-  /**
-   * Request a FRESH GPS position with NO caching tolerance.
-   * Validates accuracy and timestamp freshness before resolving.
-   * Used for clock-in/clock-out security validation.
-   */
-  const requestFreshLocation = (): Promise<LocationData> => {
-    return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        reject(new Error('Geolocation is not supported by this browser'));
-        return;
-      }
-
-      console.log('🔍 Requesting FRESH GPS position for clock-in validation...');
-      
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const now = Date.now();
-          const positionAge = now - position.timestamp;
-          
-          console.log('📍 GPS Position received:', {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-            accuracy: position.coords.accuracy,
-            timestamp: new Date(position.timestamp).toISOString(),
-            age_seconds: (positionAge / 1000).toFixed(1),
-            is_fresh: positionAge < 30000
-          });
-
-          // CRITICAL: Reject positions older than 30 seconds
-          if (positionAge > 30000) {
-            console.warn('⚠️  GPS position too old:', positionAge / 1000, 'seconds');
-            reject(new Error('GPS position is stale. Please wait for fresh location data.'));
-            return;
-          }
-
-          // CRITICAL: Reject positions with poor accuracy
-          if (position.coords.accuracy > 50) {
-            console.warn('⚠️  GPS accuracy too low:', position.coords.accuracy, 'meters');
-            reject(new Error(`GPS accuracy is ${Math.round(position.coords.accuracy)}m. Need ≤50m for clock-in.`));
-            return;
-          }
-
-          const locationData: LocationData = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-            accuracy: position.coords.accuracy,
-            timestamp: position.timestamp
-          };
-
-          console.log('✅ Fresh GPS position validated successfully');
-          resolve(locationData);
-        },
-        (error) => {
-          console.error('❌ GPS error:', error);
-          let errorMessage = 'Unable to get your location. ';
-          
-          switch (error.code) {
-            case error.PERMISSION_DENIED:
-              errorMessage += 'Location permission denied. Please enable location access.';
-              break;
-            case error.POSITION_UNAVAILABLE:
-              errorMessage += 'Location information unavailable. Try moving to an area with better GPS signal.';
-              break;
-            case error.TIMEOUT:
-              errorMessage += 'Location request timed out. Please try again.';
-              break;
-            default:
-              errorMessage += 'An unknown error occurred.';
-          }
-          
-          reject(new Error(errorMessage));
-        },
-        {
-          enableHighAccuracy: true,  // Force GPS (not WiFi/cell tower)
-          timeout: 15000,            // 15 second timeout
-          maximumAge: 0              // 🔒 CRITICAL: NO CACHING - force fresh GPS fix
-        }
-      );
-    });
-  };
-
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const R = 6371e3; // Earth's radius in meters
-    const φ1 = lat1 * Math.PI/180;
-    const φ2 = lat2 * Math.PI/180;
-    const Δφ = (lat2-lat1) * Math.PI/180;
-    const Δλ = (lon2-lon1) * Math.PI/180;
-    
-    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ/2) * Math.sin(Δλ/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    
-    return R * c;
-  };
-
-  const capturePhoto = async (): Promise<Blob> => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          facingMode: 'user',
-          width: { ideal: 640 },
-          height: { ideal: 480 }
-        } 
-      });
-      
-      const video = document.createElement('video');
-      video.srcObject = stream;
-      video.style.position = 'fixed';
-      video.style.top = '0';
-      video.style.left = '0';
-      video.style.width = '100%';
-      video.style.height = '100%';
-      video.style.objectFit = 'cover';
-      video.style.zIndex = '9999';
-      video.style.backgroundColor = 'black';
-      document.body.appendChild(video);
-      
-      await video.play();
-      
-      // Add capture button
-      const captureBtn = document.createElement('button');
-      captureBtn.innerHTML = '📸 Take Photo';
-      captureBtn.style.position = 'fixed';
-      captureBtn.style.bottom = '20px';
-      captureBtn.style.left = '50%';
-      captureBtn.style.transform = 'translateX(-50%)';
-      captureBtn.style.zIndex = '10000';
-      captureBtn.style.padding = '16px 32px';
-      captureBtn.style.backgroundColor = '#3B82F6';
-      captureBtn.style.color = 'white';
-      captureBtn.style.border = 'none';
-      captureBtn.style.borderRadius = '24px';
-      captureBtn.style.fontSize = '18px';
-      captureBtn.style.fontWeight = '600';
-      captureBtn.style.cursor = 'pointer';
-      document.body.appendChild(captureBtn);
-      
-      return new Promise((resolve, reject) => {
-        captureBtn.onclick = () => {
-          try {
-            const canvas = document.createElement('canvas');
-            canvas.width = 640;
-            canvas.height = 480;
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-              ctx.drawImage(video, 0, 0, 640, 480);
-            }
-            
-            canvas.toBlob((blob) => {
-              stream.getTracks().forEach(track => track.stop());
-              document.body.removeChild(video);
-              document.body.removeChild(captureBtn);
-              
-              if (blob) {
-                resolve(blob);
-              } else {
-                reject(new Error('Failed to capture photo'));
-              }
-            }, 'image/jpeg', 0.8);
-          } catch (error) {
-            stream.getTracks().forEach(track => track.stop());
-            document.body.removeChild(video);
-            document.body.removeChild(captureBtn);
-            reject(error);
-          }
-        };
-      });
-    } catch (error) {
-      toast.error('Camera access is required');
-      throw error;
-    }
-  };
-
-  const uploadPhoto = async (blob: Blob): Promise<string> => {
-    const fileName = `${worker?.id}/${Date.now()}.jpg`;
-    const { data, error } = await supabase.storage
-      .from('clock-photos')
-      .upload(fileName, blob);
-    
-    if (error) {
-      console.error('Upload error:', error);
-      throw error;
-    }
-    
-    const { data: { publicUrl } } = supabase.storage
-      .from('clock-photos')
-      .getPublicUrl(fileName);
-    
-    return publicUrl;
   };
 
   const handleClockIn = async () => {
     if (!selectedJobId || !worker) {
-      toast.error('Please select a job');
+      toast.error("Please select a job");
       return;
     }
-    
-    setLoading(true);
-    
-    try {
-      // ========================================
-      // 🔒 SECURITY: Request FRESH GPS position
-      // ========================================
-      toast.info('Getting your current location...', {
-        description: 'Please wait for accurate GPS signal',
-        duration: 5000
-      });
 
+    setLoading(true);
+
+    try {
+      // Request fresh GPS location with validation
+      toast.info("Getting your live location...");
       let freshLocation: LocationData;
-      
+
       try {
         freshLocation = await requestFreshLocation();
       } catch (locationError: any) {
-        toast.error('Location Required', {
-          description: locationError.message,
-          duration: 6000
-        });
+        toast.error(locationError.message || "Failed to get accurate location");
         setLoading(false);
         return;
       }
 
-      // Update displayed location with fresh data
-      setLocation(freshLocation);
-
-      console.log('✅ Using fresh GPS for clock-in:', {
-        age_seconds: (Date.now() - freshLocation.timestamp) / 1000,
-        accuracy: freshLocation.accuracy
-      });
-
-      // Check for existing open entries before clocking in
-      const { data: existingOpen } = await supabase
-        .from('clock_entries')
-        .select('id, clock_in')
-        .eq('worker_id', worker.id)
-        .is('clock_out', null)
-        .maybeSingle();
-
-      if (existingOpen) {
-        toast.error('You already have an open clock entry. Please clock out first.');
-        setLoading(false);
-        return;
-      }
-      
-      // Check geofence using FRESH location
-      const job = jobs.find(j => j.id === selectedJobId);
+      // Check geofence with fresh location
+      const job = jobs.find((j) => j.id === selectedJobId);
       if (!job) {
-        toast.error('Selected job not found');
+        toast.error("Selected job not found");
         setLoading(false);
         return;
       }
 
-      const distance = calculateDistance(
-        freshLocation.lat,      // ✅ Using fresh GPS
-        freshLocation.lng,      // ✅ Using fresh GPS
-        job.latitude,
-        job.longitude
-      );
-      
-      console.log('🎯 Geofence validation:', {
-        distance: distance.toFixed(2) + 'm',
-        radius: job.geofence_radius + 'm',
-        within_fence: distance <= job.geofence_radius
+      const distance = calculateDistance(freshLocation.lat, freshLocation.lng, job.latitude, job.longitude);
+
+      console.log("📍 Fresh location:", {
+        lat: freshLocation.lat,
+        lng: freshLocation.lng,
+        accuracy: freshLocation.accuracy,
+        timestamp: freshLocation.timestamp,
+        age: freshLocation.timestamp ? Date.now() - freshLocation.timestamp : "unknown",
+        distance: Math.round(distance),
+        radius: job.geofence_radius,
       });
 
-    if (distance > job.geofence_radius) {
-      toast.error(`You are ${Math.round(distance)}m away from the job site`, {
-        description: `Required: Within ${job.geofence_radius}m • GPS accuracy: ${Math.round(freshLocation.accuracy)}m`,
-        duration: 6000
-      });
-      setLoading(false);
-      return;
-    }
-      
+      // Validate geofence
+      if (distance > job.geofence_radius) {
+        toast.error(
+          `You are ${Math.round(distance)}m from the job site (GPS accuracy: ${Math.round(freshLocation.accuracy)}m). Please move closer to site.`,
+        );
+        setLoading(false);
+        return;
+      }
+
       // Take photo
       const photoBlob = await capturePhoto();
       const photoUrl = await uploadPhoto(photoBlob);
-      
-      // Check if this is overtime (past shift end time)
+
+      // Check if past shift end time (overtime)
       if (isPastShiftEnd()) {
-        // Store the pending data and show confirmation dialog
         setPendingOvertimeData({
-          jobId: selectedJobId,
-          photoUrl: photoUrl,
-          location: freshLocation
+          photoUrl,
+          location: freshLocation,
+          jobId: selectedJobId
         });
         setShowOvertimeDialog(true);
-        // Don't set loading to false yet - let the dialog handle it
+        setLoading(false);
         return;
       }
-      
-      // Create clock entry with fresh location data
+
+      // Create regular clock entry with fresh location
       const { data, error } = await supabase
-        .from('clock_entries')
+        .from("clock_entries")
         .insert({
           worker_id: worker.id,
           job_id: selectedJobId,
           clock_in: new Date().toISOString(),
           clock_in_photo: photoUrl,
-          clock_in_lat: freshLocation.lat,      // ✅ Fresh GPS
-          clock_in_lng: freshLocation.lng       // ✅ Fresh GPS
+          clock_in_lat: freshLocation.lat,
+          clock_in_lng: freshLocation.lng,
         })
-        .select('*, jobs(name)')
+        .select("*, jobs(name)")
         .single();
-      
+
       if (error) {
-        toast.error('Failed to clock in: ' + error.message);
+        toast.error("Failed to clock in: " + error.message);
         return;
       }
-      
+
       setCurrentEntry(data);
-      toast.success('Clocked in successfully!', {
-        description: `Location verified at ${Math.round(freshLocation.accuracy)}m accuracy`
-      });
+      toast.success("Clocked in successfully!");
     } catch (error) {
-      console.error('Clock in error:', error);
-      toast.error('Failed to clock in');
+      console.error("Clock in error:", error);
+      toast.error("Failed to clock in");
     }
-    
+
     setLoading(false);
   };
 
   const handleClockOut = async () => {
     if (!currentEntry || !worker) return;
-    
-    setLoading(true);
-    
-    try {
-      // ========================================
-      // 🔒 SECURITY: Request FRESH GPS position
-      // ========================================
-      toast.info('Getting your current location...', {
-        description: 'Please wait for accurate GPS signal',
-        duration: 5000
-      });
 
+    setLoading(true);
+
+    try {
+      // Request fresh GPS location with validation
+      toast.info("Getting your live location...");
       let freshLocation: LocationData;
-      
+
       try {
         freshLocation = await requestFreshLocation();
       } catch (locationError: any) {
-        toast.error('Location Required', {
-          description: locationError.message,
-          duration: 6000
-        });
+        toast.error(locationError.message || "Failed to get accurate location");
         setLoading(false);
         return;
       }
 
-      // Update displayed location
-      setLocation(freshLocation);
-
-      console.log('✅ Using fresh GPS for clock-out:', {
-        age_seconds: (Date.now() - freshLocation.timestamp) / 1000,
-        accuracy: freshLocation.accuracy
-      });
-      
       // Get the job details to check geofence
-      const job = jobs.find(j => j.id === currentEntry.job_id);
+      const job = jobs.find((j) => j.id === currentEntry.job_id);
       if (!job) {
-        toast.error('Job not found');
+        toast.error("Job not found");
         setLoading(false);
         return;
       }
-      
-      // Calculate distance from job site using FRESH location
-      const distance = calculateDistance(
-        freshLocation.lat,      // ✅ Using fresh GPS
-        freshLocation.lng,      // ✅ Using fresh GPS
-        job.latitude,
-        job.longitude
-      );
-      
-      console.log('🎯 Geofence validation (clock-out):', {
-        distance: distance.toFixed(2) + 'm',
-        radius: job.geofence_radius + 'm',
-        within_fence: distance <= job.geofence_radius
+
+      // Calculate distance from job site with fresh location
+      const distance = calculateDistance(freshLocation.lat, freshLocation.lng, job.latitude, job.longitude);
+
+      console.log("📍 Fresh location for clock-out:", {
+        lat: freshLocation.lat,
+        lng: freshLocation.lng,
+        accuracy: freshLocation.accuracy,
+        timestamp: freshLocation.timestamp,
+        age: freshLocation.timestamp ? Date.now() - freshLocation.timestamp : "unknown",
+        distance: Math.round(distance),
+        radius: job.geofence_radius,
       });
-      
+
       // Validate geofence
       if (distance > job.geofence_radius) {
-        toast.error(`You must be within ${job.geofence_radius}m of the job site to clock out. You are ${Math.round(distance)}m away.`, {
-          description: 'Move closer to the job site to clock out.',
-          duration: 6000
-        });
+        toast.error(
+          `You are ${Math.round(distance)}m from the job site (GPS accuracy: ${Math.round(freshLocation.accuracy)}m). Please move closer to site.`,
+        );
         setLoading(false);
         return;
       }
-      
+
       // Take photo
       const photoBlob = await capturePhoto();
       const photoUrl = await uploadPhoto(photoBlob);
-      
+
       // Calculate hours
       const clockIn = new Date(currentEntry.clock_in);
       const clockOut = new Date();
       const hours = (clockOut.getTime() - clockIn.getTime()) / (1000 * 60 * 60);
-      
-      // Update clock entry
+
+      // Update clock entry with fresh location
       const { data, error } = await supabase
-        .from('clock_entries')
+        .from("clock_entries")
         .update({
           clock_out: clockOut.toISOString(),
           clock_out_photo: photoUrl,
           clock_out_lat: freshLocation.lat,
           clock_out_lng: freshLocation.lng,
-          total_hours: Math.round(hours * 100) / 100
+          total_hours: Math.round(hours * 100) / 100,
         })
-        .eq('id', currentEntry.id)
-        .select('*, jobs(name)')
+        .eq("id", currentEntry.id)
+        .select("*, jobs(name)")
         .single();
-      
+
       if (error) {
-        toast.error('Failed to clock out: ' + error.message);
+        toast.error("Failed to clock out: " + error.message);
         return;
       }
-      
-      // Log clock-out action to audit trail
-      await supabase.from('clock_entry_audit').insert({
-        clock_entry_id: currentEntry.id,
-        worker_id: worker.id,
-        action: 'clock_out',
-        triggered_by: 'manual',
-        metadata: {
-          distance_from_site: distance,
-          location: { lat: freshLocation.lat, lng: freshLocation.lng }
-        }
-      });
-      
-      
+
       // Store completed entry for expense dialog
       setCompletedClockEntry({
         ...data,
         clock_in_time: clockIn.toISOString(),
         clock_out_time: clockOut.toISOString(),
-        total_hours: hours
+        total_hours: hours,
       });
-      
+
       setCurrentEntry(null);
       setCurrentShiftExpenses([]);
-      
+
       // Show expense dialog if expense types available
       if (expenseTypes && expenseTypes.length > 0) {
         setShowExpenseDialog(true);
@@ -1092,101 +934,97 @@ export default function ClockScreen() {
         toast.success(`Clocked out successfully! Worked ${hours.toFixed(2)} hours`);
       }
     } catch (error) {
-      console.error('Clock out error:', error);
-      toast.error('Failed to clock out');
+      console.error("Clock out error:", error);
+      toast.error("Failed to clock out");
     }
-    
+
     setLoading(false);
   };
 
   const handleLogout = async () => {
     localStorage.clear();
     await supabase.auth.signOut();
-    navigate('/login');
+    navigate("/login");
   };
 
   const getElapsedTime = () => {
-    if (!currentEntry) return '';
-    
+    if (!currentEntry) return "";
+
     const start = new Date(currentEntry.clock_in);
     const now = currentTime;
     const diff = now.getTime() - start.getTime();
-    
+
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    
+
     return `${hours}h ${minutes}m`;
   };
 
   const totalSelectedExpenses = selectedExpenses.reduce((sum, id) => {
-    const expense = expenseTypes.find(e => e.id === id);
+    const expense = expenseTypes.find((e) => e.id === id);
     return sum + (expense?.amount || 0);
   }, 0);
 
   const handleExpenseDialogSubmit = async () => {
     if (!completedClockEntry) return;
-    
+
     setSubmittingExpenses(true);
     let expenseCount = 0;
     let totalAmount = 0;
-    
+
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No authenticated user');
-      
-      const { data: worker } = await supabase
-        .from('workers')
-        .select('id')
-        .eq('email', user.email)
-        .single();
-      
-      if (!worker) throw new Error('Worker not found');
-      
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("No authenticated user");
+
+      const { data: worker } = await supabase.from("workers").select("id").eq("email", user.email).single();
+
+      if (!worker) throw new Error("Worker not found");
+
       // Process selected expenses
       if (selectedExpenses.length > 0) {
         for (const expenseId of selectedExpenses) {
-          const expense = expenseTypes.find(e => e.id === expenseId);
+          const expense = expenseTypes.find((e) => e.id === expenseId);
           if (expense) {
-            const { error } = await supabase
-              .from('additional_costs')
-              .insert({
-                worker_id: worker.id,
-                clock_entry_id: completedClockEntry.id,
-                description: expense.name,
-                amount: expense.amount,
-                expense_type_id: expense.id,
-                cost_type: 'other',
-                date: new Date().toISOString().split('T')[0]
-              });
-            
+            const { error } = await supabase.from("additional_costs").insert({
+              worker_id: worker.id,
+              clock_entry_id: completedClockEntry.id,
+              description: expense.name,
+              amount: expense.amount,
+              expense_type_id: expense.id,
+              cost_type: "other",
+              date: new Date().toISOString().split("T")[0],
+            });
+
             if (!error) {
               expenseCount++;
               totalAmount += expense.amount;
             } else {
-              console.error('Error adding expense:', error);
+              console.error("Error adding expense:", error);
               toast.error(`Failed to add ${expense.name}`);
             }
           }
         }
       }
-      
+
       // Calculate duration for success message
       const duration = (completedClockEntry.total_hours || 0).toFixed(2);
       let message = `Clocked out successfully! Worked ${duration} hours`;
-      
+
       if (expenseCount > 0) {
         message += `. ${expenseCount} expense(s) claimed (£${totalAmount.toFixed(2)})`;
       }
-      
+
       toast.success(message, { duration: 6000 });
-      
+
       // Clean up
       setShowExpenseDialog(false);
       setSelectedExpenses([]);
       setCompletedClockEntry(null);
     } catch (error) {
-      console.error('Error submitting expenses:', error);
-      toast.error('Failed to save expenses');
+      console.error("Error submitting expenses:", error);
+      toast.error("Failed to save expenses");
     } finally {
       setSubmittingExpenses(false);
     }
@@ -1194,48 +1032,25 @@ export default function ClockScreen() {
 
   const handlePWADialogDismiss = async () => {
     if (!worker?.id) return;
-    
+
     try {
-      const { error } = await supabase
-        .from('workers')
-        .update({ pwa_install_info_dismissed: true })
-        .eq('id', worker.id);
-      
+      const { error } = await supabase.from("workers").update({ pwa_install_info_dismissed: true }).eq("id", worker.id);
+
       if (error) throw error;
-      
-      console.log('PWA install dialog dismissed for worker:', worker.id);
-      
+
+      console.log("PWA install dialog dismissed for worker:", worker.id);
+
       // Refresh worker context to get updated flag
       await refreshWorker();
     } catch (error) {
-      console.error('Error dismissing PWA dialog:', error);
+      console.error("Error dismissing PWA dialog:", error);
     }
   };
 
-  // Show loading screen while worker data is loading
-  if (workerLoading) {
+  if (!worker || workerLoading) {
     return (
-      <BrandedLoadingScreen 
-        message="Loading your dashboard..." 
-        showLogo={true}
-        organizationLogoUrl={contextWorker?.organizations?.logo_url}
-      />
-    );
-  }
-
-  // Show error if worker data failed to load
-  if (!contextWorker || !worker) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-6">
-        <div className="text-center space-y-4">
-          <Info className="h-12 w-12 text-muted-foreground mx-auto" />
-          <h2 className="text-xl font-semibold">Unable to Load Dashboard</h2>
-          <p className="text-muted-foreground">Could not load your worker profile. Please try again.</p>
-          <Button onClick={() => refreshWorker()} className="mt-4">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Retry
-          </Button>
-        </div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <LoadingSpinner type="verification" message="Loading your dashboard..." />
       </div>
     );
   }
@@ -1256,23 +1071,19 @@ export default function ClockScreen() {
           }
         `}
       </style>
-      
+
       {/* Header */}
-      <header className="bg-black shadow-lg sticky top-0 z-50">
+      <header className="bg-primary shadow-lg sticky top-0 z-50">
         <div className="px-4 py-4">
           <div className="flex items-center justify-between">
             {/* Logo and Organization */}
             <div className="flex items-center space-x-3">
-              <OrganizationLogo 
-                organizationLogoUrl={worker.organizations?.logo_url}
-                size="medium" 
-                showText={false} 
-              />
+              <OrganizationLogo organizationLogoUrl={worker.organizations?.logo_url} size="medium" showText={false} />
               <div>
-                <h1 className="text-xl font-bold text-white">AutoTime</h1>
+                <h1 className="text-xl font-bold text-primary-foreground">AutoTime</h1>
               </div>
             </div>
-            
+
             {/* Navigation Buttons */}
             <div className="flex items-center space-x-2">
               <button
@@ -1283,32 +1094,32 @@ export default function ClockScreen() {
                     toast.success("App is already up to date!");
                   }
                 }}
-                className="h-9 w-9 flex items-center justify-center text-white hover:bg-gray-800 rounded-lg transition-colors"
+                className="h-9 w-9 flex items-center justify-center text-primary-foreground hover:bg-white/10 rounded-lg transition-colors"
                 title="Refresh app"
               >
                 <RefreshCw className="h-5 w-5" />
               </button>
-              
+
               <button
-                onClick={() => navigate('/profile')}
-                className="h-9 w-9 flex items-center justify-center text-white hover:bg-gray-800 rounded-lg transition-colors"
+                onClick={() => navigate("/profile")}
+                className="h-9 w-9 flex items-center justify-center text-primary-foreground hover:bg-white/10 rounded-lg transition-colors"
               >
                 <User className="h-5 w-5" />
               </button>
-              
+
               {worker && <NotificationPanel workerId={worker.id} />}
-              
+
               <button
-                onClick={() => navigate('/help')}
-                className="h-9 w-9 flex items-center justify-center text-white hover:bg-gray-800 rounded-lg transition-colors"
+                onClick={() => navigate("/help")}
+                className="h-9 w-9 flex items-center justify-center text-primary-foreground hover:bg-white/10 rounded-lg transition-colors"
                 title="Help & FAQs"
               >
                 <Info className="h-5 w-5" />
               </button>
-              
+
               <button
                 onClick={handleLogout}
-                className="h-9 w-9 flex items-center justify-center text-white hover:bg-gray-800 rounded-lg transition-colors"
+                className="h-9 w-9 flex items-center justify-center text-primary-foreground hover:bg-white/10 rounded-lg transition-colors"
               >
                 <LogOut className="h-5 w-5" />
               </button>
@@ -1319,22 +1130,16 @@ export default function ClockScreen() {
 
       <div className="p-4 space-y-6">
         {/* Current Time */}
-        <Card className="border-l-4 border-black shadow-md hover:shadow-lg transition-shadow">
-          <CardContent className="p-4 text-center bg-black text-white">
-            <div className="text-2xl font-heading font-bold">
-              {currentTime.toLocaleTimeString()}
-            </div>
-            <div className="text-sm text-white/80 font-body">
-              {currentTime.toLocaleDateString()}
-            </div>
+        <Card className="border-l-4 border-gray-400 shadow-md hover:shadow-lg transition-shadow">
+          <CardContent className="p-4 text-center bg-gray-400 text-white">
+            <div className="text-2xl font-heading font-bold">{currentTime.toLocaleTimeString()}</div>
+            <div className="text-sm text-white/80 font-body">{currentTime.toLocaleDateString()}</div>
           </CardContent>
         </Card>
 
         {/* Status */}
         <Card>
-          <CardContent className={`p-6 text-center ${
-            currentEntry ? 'bg-green-50 border-green-200' : 'bg-gray-50'
-          }`}>
+          <CardContent className={`p-6 text-center ${currentEntry ? "bg-green-50 border-green-200" : "bg-gray-50"}`}>
             {currentEntry ? (
               <>
                 <Clock className="w-16 h-16 mx-auto mb-4 text-green-600" />
@@ -1343,9 +1148,7 @@ export default function ClockScreen() {
                 <p className="text-sm font-body text-muted-foreground mt-1">
                   Since {new Date(currentEntry.clock_in).toLocaleTimeString()}
                 </p>
-                <p className="text-lg font-heading font-bold text-green-600 mt-2">
-                  {getElapsedTime()}
-                </p>
+                <p className="text-lg font-heading font-bold text-green-600 mt-2">{getElapsedTime()}</p>
                 {currentShiftExpenses.length > 0 && (
                   <div className="mt-3 p-2 bg-blue-50 rounded-lg">
                     <p className="text-sm text-blue-700 font-medium">
@@ -1367,47 +1170,11 @@ export default function ClockScreen() {
         {/* Location Status */}
         {location && (
           <Card>
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center text-muted-foreground">
-                  <MapPin className={`w-4 h-4 mr-2 ${
-                    location.timestamp && (Date.now() - location.timestamp) < 30000 
-                      ? 'text-green-600' 
-                      : 'text-yellow-600'
-                  }`} />
-                  GPS Accuracy: {Math.round(location.accuracy)}m
-                </div>
-                {location.timestamp && (
-                  <div className={`text-xs font-medium ${
-                    (Date.now() - location.timestamp) < 30000 
-                      ? 'text-green-600' 
-                      : 'text-yellow-600'
-                  }`}>
-                    {((Date.now() - location.timestamp) / 1000).toFixed(0)}s ago
-                  </div>
-                )}
+            <CardContent className="p-4">
+              <div className="flex items-center justify-center text-sm text-muted-foreground">
+                <MapPin className="w-4 h-4 mr-2 text-green-600" />
+                GPS Accuracy: {Math.round(location.accuracy)}m
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  try {
-                    const fresh = await requestFreshLocation();
-                    setLocation(fresh);
-                    toast.success('Location updated', {
-                      description: `Accuracy: ${Math.round(fresh.accuracy)}m`
-                    });
-                  } catch (error: any) {
-                    toast.error('Failed to update location', {
-                      description: error.message
-                    });
-                  }
-                }}
-                className="w-full"
-              >
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Refresh Location
-              </Button>
             </CardContent>
           </Card>
         )}
@@ -1421,16 +1188,14 @@ export default function ClockScreen() {
               className="w-full py-8 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white text-2xl font-bold rounded-2xl shadow-lg transform transition-all duration-200 active:scale-95"
             >
               <LogOut className="mx-auto h-12 w-12 mb-2" />
-              {loading ? 'Processing...' : 'Clock Out'}
+              {loading ? "Processing..." : "Clock Out"}
             </button>
           ) : (
             <>
               <Card>
                 <CardContent className="p-4">
                   <div className="flex justify-between items-center mb-2">
-                    <label className="text-sm font-body font-medium text-foreground">
-                      Select Job Site
-                    </label>
+                    <label className="text-sm font-body font-medium text-foreground">Select Job Site</label>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -1438,7 +1203,7 @@ export default function ClockScreen() {
                       disabled={refreshingJobs}
                       className="h-8 px-2"
                     >
-                      <RefreshCw className={`w-4 h-4 ${refreshingJobs ? 'animate-spin' : ''}`} />
+                      <RefreshCw className={`w-4 h-4 ${refreshingJobs ? "animate-spin" : ""}`} />
                     </Button>
                   </div>
                   <Popover open={jobSearchOpen} onOpenChange={setJobSearchOpen}>
@@ -1447,79 +1212,57 @@ export default function ClockScreen() {
                         variant="outline"
                         role="combobox"
                         aria-expanded={jobSearchOpen}
-                        className="h-12 w-full justify-between font-normal"
+                        className="w-full h-12 justify-between"
                       >
                         {selectedJobId
-                          ? (() => {
-                              const job = jobs.find((j) => j.id === selectedJobId);
-                              return job ? `${job.name} (${job.code})` : "Choose a job site";
-                            })()
+                          ? jobs.find((job) => job.id === selectedJobId)?.name + 
+                            " (" + jobs.find((job) => job.id === selectedJobId)?.code + ")"
                           : "Choose a job site"}
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                       <Command>
-                        <CommandInput 
-                          placeholder="Search job sites..." 
-                          value={jobSearchQuery}
-                          onValueChange={setJobSearchQuery}
-                        />
+                        <CommandInput placeholder="Search job sites..." className="h-12" />
                         <CommandList>
                           <CommandEmpty>No job site found.</CommandEmpty>
                           <CommandGroup>
-                            {jobs
-                              .filter(job => {
-                                const searchTerm = jobSearchQuery.toLowerCase();
-                                return (
-                                  job.name.toLowerCase().includes(searchTerm) ||
-                                  job.code.toLowerCase().includes(searchTerm)
-                                );
-                              })
-                              .map((job) => (
-                                <CommandItem
-                                  key={job.id}
-                                  value={job.id}
-                                  onSelect={(currentValue) => {
-                                    setSelectedJobId(currentValue === selectedJobId ? "" : currentValue);
-                                    setJobSearchOpen(false);
-                                    setJobSearchQuery('');
-                                  }}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      selectedJobId === job.id ? "opacity-100" : "opacity-0"
-                                    )}
-                                  />
-                                  <div className="flex flex-col">
-                                    <span className="font-medium">{job.name}</span>
-                                    <span className="text-xs text-muted-foreground">
-                                      {job.code}
-                                    </span>
-                                  </div>
-                                </CommandItem>
-                              ))}
+                            {jobs.map((job) => (
+                              <CommandItem
+                                key={job.id}
+                                value={`${job.name} ${job.code}`}
+                                onSelect={() => {
+                                  setSelectedJobId(job.id);
+                                  setJobSearchOpen(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedJobId === job.id ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                {job.name} ({job.code})
+                              </CommandItem>
+                            ))}
                           </CommandGroup>
                         </CommandList>
                       </Command>
                     </PopoverContent>
                   </Popover>
                   {jobs.length === 0 && (
-                    <p className="text-xs text-muted-foreground mt-2">
-                      No job sites available. Try refreshing.
-                    </p>
+                    <p className="text-xs text-muted-foreground mt-2">No job sites available. Try refreshing.</p>
                   )}
                 </CardContent>
               </Card>
-              
+
               <button
                 onClick={handleClockIn}
                 disabled={loading || !selectedJobId || !location}
                 className="w-full py-8 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white text-2xl font-bold rounded-2xl shadow-lg transform transition-all duration-200 active:scale-95 disabled:active:scale-100"
               >
                 <Clock className="mx-auto h-12 w-12 mb-2" />
-                {loading ? 'Processing...' : 'Clock In'}
+                {loading ? "Processing..." : "Clock In"}
               </button>
             </>
           )}
@@ -1531,9 +1274,7 @@ export default function ClockScreen() {
             <CardContent className="p-4 bg-blue-50 border-blue-200">
               <div className="flex items-center gap-2">
                 <Wallet className="w-5 h-5 text-blue-600" />
-                <p className="text-sm text-blue-700">
-                  Remember to claim any expenses when you clock out
-                </p>
+                <p className="text-sm text-blue-700">Remember to claim any expenses when you clock out</p>
               </div>
             </CardContent>
           </Card>
@@ -1541,13 +1282,13 @@ export default function ClockScreen() {
 
         {/* Timesheet Navigation */}
         <button
-          onClick={() => navigate('/timesheets')}
-          className="w-full p-4 bg-black hover:bg-gray-800 text-white rounded-xl font-medium transition-colors flex items-center justify-center space-x-2"
+          onClick={() => navigate("/timesheets")}
+          className="w-full p-4 bg-primary hover:bg-primary-dark text-primary-foreground rounded-xl font-medium transition-colors flex items-center justify-center space-x-2"
         >
           <FileText className="h-5 w-5" />
           <span>View Timesheets</span>
         </button>
-        
+
         {/* Expense Dialog */}
         {showExpenseDialog && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
@@ -1557,11 +1298,14 @@ export default function ClockScreen() {
                 <p className="text-sm text-muted-foreground mb-4">
                   Select any expenses to claim for the shift you just completed:
                 </p>
-                
+
                 {expenseTypes.length > 0 ? (
                   <div className="space-y-2 mb-6">
                     {expenseTypes.map((expense) => (
-                      <label key={expense.id} className="flex items-center p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer">
+                      <label
+                        key={expense.id}
+                        className="flex items-center p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
+                      >
                         <input
                           type="checkbox"
                           className="mr-3 w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
@@ -1570,7 +1314,7 @@ export default function ClockScreen() {
                             if (e.target.checked) {
                               setSelectedExpenses([...selectedExpenses, expense.id]);
                             } else {
-                              setSelectedExpenses(selectedExpenses.filter(id => id !== expense.id));
+                              setSelectedExpenses(selectedExpenses.filter((id) => id !== expense.id));
                             }
                           }}
                           disabled={submittingExpenses}
@@ -1584,14 +1328,15 @@ export default function ClockScreen() {
                         </div>
                       </label>
                     ))}
-                    
+
                     {selectedExpenses.length > 0 && (
                       <div className="mt-3 p-3 bg-blue-50 rounded-lg">
                         <div className="flex justify-between items-center">
                           <span className="text-sm font-medium">Total to claim:</span>
                           <span className="font-semibold text-blue-600">
-                            £{expenseTypes
-                              .filter(e => selectedExpenses.includes(e.id))
+                            £
+                            {expenseTypes
+                              .filter((e) => selectedExpenses.includes(e.id))
                               .reduce((sum, e) => sum + e.amount, 0)
                               .toFixed(2)}
                           </span>
@@ -1602,7 +1347,7 @@ export default function ClockScreen() {
                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-4 mb-6">No expense types available</p>
                 )}
-                
+
                 <div className="flex gap-3">
                   <Button
                     variant="outline"
@@ -1621,7 +1366,7 @@ export default function ClockScreen() {
                   <Button
                     onClick={handleExpenseDialogSubmit}
                     disabled={submittingExpenses}
-                    className={`flex-1 ${submittingExpenses ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`flex-1 ${submittingExpenses ? "opacity-50 cursor-not-allowed" : ""}`}
                   >
                     {submittingExpenses ? (
                       <>
@@ -1631,7 +1376,7 @@ export default function ClockScreen() {
                     ) : selectedExpenses.length > 0 ? (
                       `Submit ${selectedExpenses.length} Expense(s) & Finish`
                     ) : (
-                      'No Expenses - Finish'
+                      "No Expenses - Finish"
                     )}
                   </Button>
                 </div>
@@ -1641,6 +1386,9 @@ export default function ClockScreen() {
         )}
       </div>
 
+      {/* PWA Install Dialog */}
+      <PWAInstallDialog open={showPWADialog} onOpenChange={setShowPWADialog} onDismiss={handlePWADialogDismiss} />
+      
       {/* Overtime Confirmation Dialog */}
       <OvertimeConfirmationDialog
         open={showOvertimeDialog}
@@ -1649,18 +1397,9 @@ export default function ClockScreen() {
           setShowOvertimeDialog(false);
           setPendingOvertimeData(null);
           setLoading(false);
-          setIsRequestingOT(false);
         }}
-        isLoading={isRequestingOT}
+        isLoading={isRequestingOvertime}
       />
-
-      {/* PWA Install Dialog */}
-      <PWAInstallDialog 
-        open={showPWADialog} 
-        onOpenChange={setShowPWADialog}
-        onDismiss={handlePWADialogDismiss}
-      />
-
     </div>
   );
 }
