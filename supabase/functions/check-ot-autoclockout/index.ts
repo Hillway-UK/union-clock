@@ -105,6 +105,8 @@ Deno.serve(async (req) => {
             total_hours: displayHours,
             auto_clocked_out: true,
             auto_clockout_type: autoClockOutReason,
+            source: 'system_auto',
+            photo_required: false,
             notes: autoClockOutReason === 'ot_3hour_limit'
               ? 'Auto clocked-out after 3-hour OT limit'
               : 'Auto clocked-out - left site during OT'

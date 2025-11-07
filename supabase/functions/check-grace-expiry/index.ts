@@ -134,6 +134,8 @@ Deno.serve(async (req) => {
           clock_out: clockOutTime,
           auto_clocked_out: true,
           auto_clockout_type: "geofence",
+          source: "system_auto",
+          photo_required: false,
           total_hours: totalHours,
           geofence_exit_data: {
             distance: exit.distance_from_center,
