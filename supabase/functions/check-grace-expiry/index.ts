@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
       // 3️⃣ Check if manual clock-out happened
       const { data: clockEntry } = await supabase
         .from("clock_entries")
-        .select("clock_out, auto_clocked_out, clock_in, job_id, worker_id")
+        .select("clock_out, auto_clocked_out, clock_in, job_id, worker_id, is_overtime")
         .eq("id", exit.clock_entry_id)
         .single();
 
@@ -84,6 +84,12 @@ Deno.serve(async (req) => {
 
       if (clockEntry.clock_out && !clockEntry.auto_clocked_out) {
         console.log(`Skipping ${exit.clock_entry_id} (manual clockout detected).`);
+        continue;
+      }
+
+      // Skip OT entries - handled by check-ot-autoclockout with 3-hour cap
+      if (clockEntry.is_overtime) {
+        console.log(`Skipping ${exit.clock_entry_id} (OT entry - handled by check-ot-autoclockout).`);
         continue;
       }
 
