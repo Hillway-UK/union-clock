@@ -109,6 +109,7 @@ export default function ClockScreen() {
     photoUrl: string;
     location: LocationData;
   } | null>(null);
+  const [isRequestingOT, setIsRequestingOT] = useState(false);
 
   // Set worker from context
   useEffect(() => {
@@ -530,7 +531,39 @@ export default function ClockScreen() {
   const createOvertimeEntry = async () => {
     if (!pendingOvertimeData || !worker) return;
 
+    // Prevent double-submission
+    if (isRequestingOT) {
+      console.log('⚠️ OT request already in progress, ignoring duplicate click');
+      return;
+    }
+
+    setIsRequestingOT(true); // Lock the button
+
     try {
+      // Check for existing OT today BEFORE creating
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      
+      const { data: existingOT } = await supabase
+        .from('clock_entries')
+        .select('id')
+        .eq('worker_id', worker.id)
+        .eq('is_overtime', true)
+        .gte('clock_in', today.toISOString())
+        .lt('clock_in', tomorrow.toISOString())
+        .maybeSingle();
+      
+      if (existingOT) {
+        toast.error('You already have an overtime request for today.');
+        setShowOvertimeDialog(false);
+        setPendingOvertimeData(null);
+        setLoading(false);
+        setIsRequestingOT(false);
+        return;
+      }
+
       const linkedShiftId = await getTodayMainShift();
 
       const { data, error } = await supabase
@@ -553,6 +586,7 @@ export default function ClockScreen() {
       if (error) {
         toast.error('Failed to create overtime entry: ' + error.message);
         setLoading(false);
+        setIsRequestingOT(false);
         return;
       }
 
@@ -573,10 +607,12 @@ export default function ClockScreen() {
       setShowOvertimeDialog(false);
       setPendingOvertimeData(null);
       setLoading(false);
+      setIsRequestingOT(false);
     } catch (error) {
       console.error('Error creating OT entry:', error);
       toast.error('Failed to request overtime');
       setLoading(false);
+      setIsRequestingOT(false);
     }
   };
 
@@ -1613,8 +1649,10 @@ export default function ClockScreen() {
           setShowOvertimeDialog(false);
           setPendingOvertimeData(null);
           setLoading(false);
+          setIsRequestingOT(false);
         }}
         shiftEndTime={worker?.shift_end}
+        isLoading={isRequestingOT}
       />
 
       {/* PWA Install Dialog */}
