@@ -103,7 +103,7 @@ export default function ClockScreen() {
   const [showPWADialog, setShowPWADialog] = useState(false);
   const [isTrackingLocation, setIsTrackingLocation] = useState(false);
   const locationIntervalRef = useRef<number | null>(null);
-  
+
   // Overtime state
   const [showOvertimeDialog, setShowOvertimeDialog] = useState(false);
   const [pendingOvertimeData, setPendingOvertimeData] = useState<{
@@ -616,12 +616,12 @@ export default function ClockScreen() {
   // Check if current time is past shift end
   const isPastShiftEnd = (): boolean => {
     if (!worker?.shift_end) return false;
-    
+
     const now = new Date();
-    const [hours, minutes] = worker.shift_end.split(':').map(Number);
+    const [hours, minutes] = worker.shift_end.split(":").map(Number);
     const shiftEndTime = new Date();
     shiftEndTime.setHours(hours, minutes, 0, 0);
-    
+
     return now > shiftEndTime;
   };
 
@@ -634,24 +634,24 @@ export default function ClockScreen() {
       todayEnd.setHours(23, 59, 59, 999);
 
       const { data, error } = await (supabase as any)
-        .from('clock_entries')
-        .select('id')
-        .eq('worker_id', worker?.id)
-        .eq('is_overtime', false)
-        .gte('clock_in', todayStart.toISOString())
-        .lte('clock_in', todayEnd.toISOString())
-        .order('clock_in', { ascending: false })
+        .from("clock_entries")
+        .select("id")
+        .eq("worker_id", worker?.id)
+        .eq("is_overtime", false)
+        .gte("clock_in", todayStart.toISOString())
+        .lte("clock_in", todayEnd.toISOString())
+        .order("clock_in", { ascending: false })
         .limit(1)
         .maybeSingle();
 
       if (error || !data) {
-        console.log('No main shift found for today');
+        console.log("No main shift found for today");
         return null;
       }
 
       return data.id;
     } catch (error) {
-      console.error('Error getting today shift:', error);
+      console.error("Error getting today shift:", error);
       return null;
     }
   };
@@ -671,24 +671,27 @@ export default function ClockScreen() {
 
       const { data: existingOT, error: checkError } = await (supabase as any)
         .from("clock_entries")
-        .select('id, ot_status')
-        .eq('worker_id', worker.id)
-        .eq('is_overtime', true)
-        .gte('clock_in', todayStart.toISOString())
-        .lte('clock_in', todayEnd.toISOString())
+        .select("id, ot_status")
+        .eq("worker_id", worker.id)
+        .eq("is_overtime", true)
+        .gte("clock_in", todayStart.toISOString())
+        .lte("clock_in", todayEnd.toISOString())
         .maybeSingle();
 
-      if (checkError && checkError.code !== 'PGRST116') {
-        console.error('Error checking existing OT:', checkError);
+      if (checkError && checkError.code !== "PGRST116") {
+        console.error("Error checking existing OT:", checkError);
         toast.error("Failed to verify overtime status");
         setIsRequestingOvertime(false);
         return;
       }
 
       if (existingOT) {
-        const status = existingOT.ot_status === 'pending' ? 'pending approval' :
-                      existingOT.ot_status === 'approved' ? 'already approved' : 
-                      'already submitted';
+        const status =
+          existingOT.ot_status === "pending"
+            ? "pending approval"
+            : existingOT.ot_status === "approved"
+              ? "already approved"
+              : "already submitted";
         toast.error(`You already have an overtime request for today (${status})`);
         setShowOvertimeDialog(false);
         setPendingOvertimeData(null);
@@ -709,7 +712,7 @@ export default function ClockScreen() {
           clock_in_lat: pendingOvertimeData.location.lat,
           clock_in_lng: pendingOvertimeData.location.lng,
           is_overtime: true,
-          ot_status: 'pending',
+          ot_status: "pending",
           ot_requested_at: new Date().toISOString(),
           linked_shift_id: linkedShiftId,
         })
@@ -723,13 +726,13 @@ export default function ClockScreen() {
       }
 
       // Send notification
-      const dedupeKey = `ot_request_${worker.id}_${new Date().toISOString().split('T')[0]}`;
+      const dedupeKey = `ot_request_${worker.id}_${new Date().toISOString().split("T")[0]}`;
       await NotificationService.sendDualNotification(
         worker.id,
-        'Overtime Request Submitted',
-        'Your overtime request is pending manager approval.',
-        'overtime_pending',
-        dedupeKey
+        "Overtime Request Submitted",
+        "Your overtime request is pending manager approval.",
+        "overtime_pending",
+        dedupeKey,
       );
 
       setCurrentEntry(data);
@@ -803,7 +806,7 @@ export default function ClockScreen() {
         setPendingOvertimeData({
           photoUrl,
           location: freshLocation,
-          jobId: selectedJobId
+          jobId: selectedJobId,
         });
         setShowOvertimeDialog(true);
         setLoading(false);
@@ -1215,8 +1218,10 @@ export default function ClockScreen() {
                         className="w-full h-12 justify-between"
                       >
                         {selectedJobId
-                          ? jobs.find((job) => job.id === selectedJobId)?.name + 
-                            " (" + jobs.find((job) => job.id === selectedJobId)?.code + ")"
+                          ? jobs.find((job) => job.id === selectedJobId)?.name +
+                            " (" +
+                            jobs.find((job) => job.id === selectedJobId)?.code +
+                            ")"
                           : "Choose a job site"}
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
@@ -1237,10 +1242,7 @@ export default function ClockScreen() {
                                 }}
                               >
                                 <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    selectedJobId === job.id ? "opacity-100" : "opacity-0"
-                                  )}
+                                  className={cn("mr-2 h-4 w-4", selectedJobId === job.id ? "opacity-100" : "opacity-0")}
                                 />
                                 {job.name} ({job.code})
                               </CommandItem>
@@ -1388,7 +1390,7 @@ export default function ClockScreen() {
 
       {/* PWA Install Dialog */}
       <PWAInstallDialog open={showPWADialog} onOpenChange={setShowPWADialog} onDismiss={handlePWADialogDismiss} />
-      
+
       {/* Overtime Confirmation Dialog */}
       <OvertimeConfirmationDialog
         open={showOvertimeDialog}
