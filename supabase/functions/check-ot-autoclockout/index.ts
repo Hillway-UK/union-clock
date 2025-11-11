@@ -1,3 +1,8 @@
+// ⚠️ DEPRECATED: This function has been consolidated into check-clock-status
+// As of the latest update, all OT auto-clockout logic runs within check-clock-status
+// This function is kept for backup/rollback purposes only
+// DO NOT schedule or invoke this function
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0';
 
 const corsHeaders = {

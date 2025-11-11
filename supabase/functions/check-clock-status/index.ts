@@ -1,11 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-// Compute current date/time in UK timezone (Europe/London with DST)
-function nowInTz(tz: string = "Europe/London") {
+// Utility: current time in Europe/London (handles DST)
+function nowInTz(tz = "Europe/London") {
   const now = new Date();
-
-  // Use Intl.DateTimeFormat to handle DST automatically
   const formatter = new Intl.DateTimeFormat("en-GB", {
     timeZone: tz,
     year: "numeric",
@@ -14,727 +11,393 @@ function nowInTz(tz: string = "Europe/London") {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
-    weekday: "short",
+    weekday: "short"
   });
-
   const parts = formatter.formatToParts(now);
-  const get = (type: string) => parts.find((p) => p.type === type)?.value || "";
-
-  // Format: DD/MM/YYYY for en-GB
+  const get = (type)=>parts.find((p)=>p.type === type)?.value || "";
   const day = get("day");
   const month = get("month");
   const year = get("year");
-  const dateStr = `${year}-${month}-${day}`; // YYYY-MM-DD
-  const timeHHmm = `${get("hour")}:${get("minute")}`; // HH:MM
-
-  // Get day of week (0=Sun, 1=Mon, ..., 6=Sat)
-  const weekdayName = get("weekday"); // Mon, Tue, etc.
-  const dayOfWeekMap: Record<string, number> = {
+  const weekdayName = get("weekday");
+  const map = {
     Sun: 0,
     Mon: 1,
     Tue: 2,
     Wed: 3,
     Thu: 4,
     Fri: 5,
-    Sat: 6,
+    Sat: 6
   };
-  const dayOfWeek = dayOfWeekMap[weekdayName] || 0;
-
-  return { dateStr, timeHHmm, dayOfWeek, tzOffset: tz };
+  return {
+    dateStr: `${year}-${month}-${day}`,
+    timeHHmm: `${get("hour")}:${get("minute")}`,
+    dayOfWeek: map[weekdayName] || 0
+  };
 }
-
-interface Worker {
-  id: string;
-  name: string;
-  email: string;
-  organization_id: string;
-  shift_start: string;
-  shift_end: string;
-  shift_days: number[];
-}
-
-interface GuardResult {
-  canAutoClockOut: boolean;
-  reason: "OK" | "NO_CLOCK_IN" | "NO_SHIFT" | "ALREADY_CLOCKED_OUT" | "ACTIVE_OVERTIME" | "OT_ENTRY" | "UNKNOWN";
-}
-
-interface ClockEntry {
-  id: string;
-  clock_in: string;
-  clock_out: string | null;
-  job_id: string;
-  is_overtime?: boolean;
-  auto_clockout_type?: string | null;
-}
-
-serve(async (req) => {
-  // Build CORS headers dynamically
+serve(async (req)=>{
   const origin = req.headers.get("origin") || "*";
-  const requestHeaders =
-    req.headers.get("access-control-request-headers") || "authorization, x-client-info, apikey, content-type";
-
   const corsHeaders = {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": requestHeaders,
-    "Access-Control-Max-Age": "86400",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Max-Age": "86400"
   };
-
   if (req.method === "OPTIONS") {
     return new Response(null, {
       status: 204,
-      headers: corsHeaders,
+      headers: corsHeaders
     });
   }
-
   try {
-    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-
-    const siteTime = nowInTz("Europe/London");
-    const { dateStr, timeHHmm, dayOfWeek } = siteTime;
-    const siteDate = new Date(dateStr + "T00:00:00Z"); // Date-only in UTC for shift_date
-
-    console.log(
-      `Running check-clock-status at ${new Date().toISOString()}, UK time: ${dateStr} ${timeHHmm}, day: ${dayOfWeek}`,
-    );
-
-    // Only run on weekdays (Monday=1, Friday=5)
+    const supabase = createClient(Deno.env.get("SUPABASE_URL"), Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"));
+    const { dateStr, timeHHmm, dayOfWeek } = nowInTz("Europe/London");
+    const siteDate = new Date(`${dateStr}T00:00:00Z`);
+    // Skip weekends
     if (dayOfWeek === 0 || dayOfWeek === 6) {
-      console.log("Weekend - skipping all checks");
-      return new Response(JSON.stringify({ message: "Weekend - no actions taken" }), {
+      return new Response(JSON.stringify({
+        message: "Weekend - skipped"
+      }), {
         status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: corsHeaders
       });
     }
-
-    let actionsPerformed = 0;
-
-    // 1. Check for clock-in reminders (5min before, exact, 15min after shift_start)
+    let actions = 0;
     const clockInWorkers = await getWorkersForClockInReminder(supabase, timeHHmm, dayOfWeek);
-    if (clockInWorkers.length > 0) {
-      console.log(`Found ${clockInWorkers.length} workers for clock-in reminder at ${timeHHmm}`);
-      actionsPerformed += await handleClockInReminders(supabase, timeHHmm, siteDate, clockInWorkers);
+    if (clockInWorkers.length) {
+      actions += await handleClockInReminders(supabase, timeHHmm, siteDate, clockInWorkers);
     }
-
-    // 2. Check for clock-out reminders (exact, 15min after shift_end)
     const clockOutWorkers = await getWorkersForClockOutReminder(supabase, timeHHmm, dayOfWeek);
-    if (clockOutWorkers.length > 0) {
-      console.log(`Found ${clockOutWorkers.length} workers for clock-out reminder at ${timeHHmm}`);
-      actionsPerformed += await handleClockOutReminders(supabase, timeHHmm, siteDate, clockOutWorkers);
+    if (clockOutWorkers.length) {
+      actions += await handleClockOutReminders(supabase, timeHHmm, siteDate, clockOutWorkers);
     }
-
-    // 3. Check for auto-clockout (30min to 40min after shift_end)
     const autoClockoutWorkers = await getWorkersForAutoClockout(supabase, timeHHmm, dayOfWeek);
-    if (autoClockoutWorkers.length > 0) {
-      console.log(`Found ${autoClockoutWorkers.length} workers in auto-clockout window at ${timeHHmm}`);
-      actionsPerformed += await handleAutoClockOut(supabase, timeHHmm, siteDate, autoClockoutWorkers);
+    if (autoClockoutWorkers.length) {
+      actions += await handleAutoClockOut(supabase, timeHHmm, siteDate, autoClockoutWorkers);
     }
-
-    // Log even if no actions (helps debugging)
-    console.log(`Check completed at ${timeHHmm}. Actions performed: ${actionsPerformed}`);
-
-    return new Response(
-      JSON.stringify({
-        message: "Check completed",
-        actionsPerformed,
-        timestamp: new Date().toISOString(),
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
+    // Check ALL active OT entries for 3-hour limit or geofence exits
+    const otActions = await checkActiveOvertimeSessions(supabase, siteDate);
+    actions += otActions;
+    return new Response(JSON.stringify({
+      message: "Check completed",
+      actionsPerformed: actions,
+      timestamp: new Date().toISOString()
+    }), {
+      status: 200,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json"
+      }
+    });
   } catch (error) {
     console.error("Error in check-clock-status:", error);
-    return new Response(
-      JSON.stringify({
-        error: error.message,
-        timestamp: new Date().toISOString(),
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
+    return new Response(JSON.stringify({
+      error: "Internal server error",
+      details: error instanceof Error ? error.message : String(error)
+    }), {
+      status: 500,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json"
+      }
+    });
   }
 });
-
-// ============================================================================
-// Dynamic Worker Query Functions
-// ============================================================================
-
-async function getWorkersForClockInReminder(supabase: any, currentTime: string, dayOfWeek: number): Promise<Worker[]> {
-  // Parse current time (e.g., "06:55" -> minutes since midnight)
-  const [currentHour, currentMin] = currentTime.split(":").map(Number);
-  const currentMinutes = currentHour * 60 + currentMin;
-
-  const { data: workers, error } = await supabase
-    .from("workers")
-    .select("id, name, email, organization_id, shift_start, shift_end, shift_days")
-    .eq("is_active", true);
-
-  if (error || !workers) {
-    console.error("Error fetching workers:", error);
-    return [];
-  }
-
-  // Filter workers whose shift_start matches one of:
-  // - currentTime + 5min = shift_start (reminder 5min before)
-  // - currentTime = shift_start (exact time)
-  // - currentTime - 15min = shift_start (reminder 15min after)
-
-  return workers.filter((w: Worker) => {
-    if (!w.shift_days?.includes(dayOfWeek)) return false;
-    if (!w.shift_start) return false;
-
-    const [shiftHour, shiftMin] = w.shift_start.split(":").map(Number);
-    const shiftMinutes = shiftHour * 60 + shiftMin;
-
-    // Check if current time matches any reminder time
-    const diff = currentMinutes - shiftMinutes;
+// ---------- Worker Query Helpers ----------
+async function getWorkersForClockInReminder(supabase, t, d) {
+  const [h, m] = t.split(":").map(Number);
+  const cur = h * 60 + m;
+  const { data: w } = await supabase.from("workers").select("id,name,email,organization_id,shift_start,shift_end,shift_days").eq("is_active", true);
+  if (!w) return [];
+  return w.filter((x)=>{
+    if (!x.shift_days?.includes(d)) return false;
+    if (!x.shift_start) return false;
+    const [sh, sm] = x.shift_start.split(":").map(Number);
+    const sMin = sh * 60 + sm;
+    const diff = cur - sMin;
     return diff === -5 || diff === 0 || diff === 15;
   });
 }
-
-async function getWorkersForClockOutReminder(supabase: any, currentTime: string, dayOfWeek: number): Promise<Worker[]> {
-  // Parse current time
-  const [currentHour, currentMin] = currentTime.split(":").map(Number);
-  const currentMinutes = currentHour * 60 + currentMin;
-
-  const { data: workers, error } = await supabase
-    .from("workers")
-    .select("id, name, email, organization_id, shift_start, shift_end, shift_days")
-    .eq("is_active", true);
-
-  if (error || !workers) {
-    console.error("Error fetching workers:", error);
-    return [];
-  }
-
-  // Filter workers whose shift_end matches:
-  // - exact, +15min (removed +30min - now handled by auto-clockout)
-
-  return workers.filter((w: Worker) => {
-    if (!w.shift_days?.includes(dayOfWeek)) return false;
-    if (!w.shift_end) return false;
-
-    const [shiftHour, shiftMin] = w.shift_end.split(":").map(Number);
-    const shiftMinutes = shiftHour * 60 + shiftMin;
-
-    const diff = currentMinutes - shiftMinutes;
-    return diff === 0 || diff === 15; // Only exact and +15min
+async function getWorkersForClockOutReminder(supabase, t, d) {
+  const [h, m] = t.split(":").map(Number);
+  const cur = h * 60 + m;
+  const { data: w } = await supabase.from("workers").select("id,name,email,organization_id,shift_start,shift_end,shift_days").eq("is_active", true);
+  if (!w) return [];
+  return w.filter((x)=>{
+    if (!x.shift_days?.includes(d)) return false;
+    if (!x.shift_end) return false;
+    const [eh, em] = x.shift_end.split(":").map(Number);
+    const eMin = eh * 60 + em;
+    const diff = cur - eMin;
+    return diff === 0 || diff === 15;
   });
 }
-
-async function getWorkersForAutoClockout(supabase: any, currentTime: string, dayOfWeek: number): Promise<Worker[]> {
-  // Parse current time
-  const [currentHour, currentMin] = currentTime.split(":").map(Number);
-  const currentMinutes = currentHour * 60 + currentMin;
-
-  const { data: workers, error } = await supabase
-    .from("workers")
-    .select("id, name, email, organization_id, shift_start, shift_end, shift_days")
-    .eq("is_active", true);
-
-  if (error || !workers) {
-    console.error("Error fetching workers:", error);
-    return [];
-  }
-
-  // Filter workers whose shift_end + 30min to +40min = current time
-
-  return workers.filter((w: Worker) => {
-    if (!w.shift_days?.includes(dayOfWeek)) return false;
-    if (!w.shift_end) return false;
-
-    const [shiftHour, shiftMin] = w.shift_end.split(":").map(Number);
-    const shiftEndMinutes = shiftHour * 60 + shiftMin;
-
-    // Auto-clockout window: shift_end + 30min to +40min (11 execution attempts)
-    const autoClockoutStart = shiftEndMinutes + 30;
-    const autoClockoutEnd = shiftEndMinutes + 40;
-
-    return currentMinutes >= autoClockoutStart && currentMinutes <= autoClockoutEnd;
+async function getWorkersForAutoClockout(supabase, t, d) {
+  const [h, m] = t.split(":").map(Number);
+  const cur = h * 60 + m;
+  const { data: w } = await supabase.from("workers").select("id,name,email,organization_id,shift_start,shift_end,shift_days").eq("is_active", true);
+  if (!w) return [];
+  return w.filter((x)=>{
+    if (!x.shift_days?.includes(d)) return false;
+    if (!x.shift_end) return false;
+    const [eh, em] = x.shift_end.split(":").map(Number);
+    const end = eh * 60 + em;
+    return cur >= end + 30 && cur <= end + 40;
   });
 }
-
-// ============================================================================
-// Handler Functions
-// ============================================================================
-
-async function handleClockInReminders(
-  supabase: any,
-  currentTime: string,
-  siteDate: Date,
-  workers: Worker[],
-): Promise<number> {
+// ---------- Reminder Handlers ----------
+async function handleClockInReminders(supabase, t, date, workers) {
   let sent = 0;
-
-  console.log(`Processing clock-in reminders for ${currentTime}`);
-
-  for (const worker of workers) {
-    const notifType = `clock_in_${currentTime.replace(":", "")}_shift${worker.shift_start.replace(":", "")}`;
-
-    // Check idempotency
-    const alreadySent = await checkNotificationSent(supabase, worker.id, notifType, siteDate);
-    if (alreadySent) {
-      console.log(`Notification ${notifType} already sent to ${worker.name}`);
-      continue;
-    }
-
-    // Check if already clocked in
-    const clockedIn = await isWorkerClockedIn(supabase, worker.id, siteDate);
-    if (clockedIn) {
-      console.log(`Worker ${worker.name} already clocked in, canceling remaining clock-in reminders`);
-      await cancelNotifications(
-        supabase,
-        worker.id,
-        siteDate,
-        `clock_in_.*_shift${worker.shift_start.replace(":", "")}`,
-      );
-      continue;
-    }
-
-    // Dynamic message based on worker's shift_start
-    const title = getClockInTitle(currentTime, worker.shift_start);
-    const body = `Shift starts at ${worker.shift_start}. Please clock in.`;
-
-    await sendNotification(supabase, worker.id, title, body, notifType, siteDate);
-    await logNotification(supabase, worker.id, notifType, siteDate);
-
+  for (const w of workers){
+    const notif = `clock_in_${t.replace(":", "")}_shift${w.shift_start.replace(":", "")}`;
+    if (await checkNotificationSent(supabase, w.id, notif, date)) continue;
+    const entry = await getTodayEntry(supabase, w.id, date);
+    if (entry) continue;
+    const title = getClockInTitle(t, w.shift_start);
+    const body = `Shift starts at ${w.shift_start}. Please clock in.`;
+    await sendNotification(supabase, w.id, title, body, notif, date);
+    await logNotification(supabase, w.id, notif, date);
     sent++;
-    console.log(`Sent clock-in reminder to ${worker.name} at ${currentTime} (shift: ${worker.shift_start})`);
   }
-
   return sent;
 }
-
-async function handleClockOutReminders(
-  supabase: any,
-  currentTime: string,
-  siteDate: Date,
-  workers: Worker[],
-): Promise<number> {
+async function handleClockOutReminders(supabase, t, date, workers) {
   let sent = 0;
-
-  console.log(`Processing clock-out reminders for ${currentTime}`);
-
-  for (const worker of workers) {
-    const notifType = `clock_out_${currentTime.replace(":", "")}_shift${worker.shift_end.replace(":", "")}`;
-
-    // Check idempotency
-    const alreadySent = await checkNotificationSent(supabase, worker.id, notifType, siteDate);
-    if (alreadySent) {
-      console.log(`Notification ${notifType} already sent to ${worker.name}`);
-      continue;
-    }
-
-    // Check if still clocked in
-    const stillClockedIn = await isWorkerStillClockedIn(supabase, worker.id, siteDate);
-    if (!stillClockedIn) {
-      console.log(`Worker ${worker.name} already clocked out, canceling remaining clock-out reminders`);
-      await cancelNotifications(
-        supabase,
-        worker.id,
-        siteDate,
-        `clock_out_.*_shift${worker.shift_end.replace(":", "")}`,
-      );
-      continue;
-    }
-
-    // Dynamic message based on worker's shift_end
-    const title = getClockOutTitle(currentTime, worker.shift_end);
-    const body = `Shift ended at ${worker.shift_end}. Please clock out.`;
-
-    await sendNotification(supabase, worker.id, title, body, notifType, siteDate);
-    await logNotification(supabase, worker.id, notifType, siteDate);
-
+  for (const w of workers){
+    const notif = `clock_out_${t.replace(":", "")}_shift${w.shift_end.replace(":", "")}`;
+    if (await checkNotificationSent(supabase, w.id, notif, date)) continue;
+    const stillClocked = await isWorkerStillClockedIn(supabase, w.id, date);
+    if (!stillClocked) continue;
+    const { data: activeOT } = await supabase.from("clock_entries").select("id").eq("worker_id", w.id).eq("is_overtime", true).is("clock_out", null).maybeSingle();
+    if (activeOT) continue;
+    const title = getClockOutTitle(t, w.shift_end);
+    const body = `Shift ended at ${w.shift_end}. Please clock out.`;
+    await sendNotification(supabase, w.id, title, body, notif, date);
+    await logNotification(supabase, w.id, notif, date);
     sent++;
-    console.log(`Sent clock-out reminder to ${worker.name} at ${currentTime} (shift: ${worker.shift_end})`);
   }
-
   return sent;
 }
-
-async function handleAutoClockOut(
-  supabase: any,
-  currentTime: string,
-  siteDate: Date,
-  workers: Worker[],
-): Promise<number> {
+// ---------- Auto Clockout ----------
+async function handleAutoClockOut(supabase, t, date, workers) {
   let performed = 0;
-
-  console.log(`\n========== AUTO CLOCK-OUT at ${currentTime} ==========`);
-  console.log(`Processing ${workers.length} workers`);
-
-  for (const worker of workers) {
-    console.log(`\n--- Worker: ${worker.name} (shift_end: ${worker.shift_end}) ---`);
-
-    // Check if audit already exists (idempotency)
-    const auditExists = await checkAuditExists(supabase, worker.id, siteDate);
-    if (auditExists) {
-      console.log(`✓ Audit already exists - skipping`);
-      continue;
-    }
-
-    // Get today's entry
-    const entry = await getTodayEntry(supabase, worker.id, siteDate);
-    if (!entry) {
-      console.log(`No clock entry found`);
-      await createAudit(supabase, worker.id, siteDate, false, "NO_CLOCK_IN");
-      continue;
-    }
-
-    console.log(`Clock entry: Found (${entry.id}, clocked_in: ${entry.clock_in}, clocked_out: ${entry.clock_out})`);
-
-    // NEW: Skip if this is an OT entry (OT has its own auto-clockout system)
-    if (entry.is_overtime) {
-      console.log(`Entry ${entry.id} is an overtime entry, skipping time-based auto-clockout (handled by OT system)`);
-      await createAudit(supabase, worker.id, siteDate, false, "OT_ENTRY");
-      continue;
-    }
-
-    // Run guard checks
-    const checks = await runGuardChecks(supabase, worker.id, siteDate);
-    console.log(`Guard checks: canAutoClockOut=${checks.canAutoClockOut}, reason=${checks.reason}`);
-
-    if (!checks.canAutoClockOut) {
-      console.log(`❌ Cannot auto clock-out: ${checks.reason}`);
-
-      // Log audit with reason
-      await createAudit(supabase, worker.id, siteDate, false, checks.reason);
-      continue;
-    }
-
-    // Skip if already auto-clocked-out by geofence
-    if (entry.auto_clockout_type === "geofence") {
-      console.log(`Worker ${worker.name} already auto-clocked-out by geofence, skipping time-based auto-clockout`);
-      continue;
-    }
-
-    // Check if worker has active overtime entry
-    const { data: activeOT } = await supabase
-      .from("clock_entries")
-      .select("id, is_overtime")
-      .eq("worker_id", worker.id)
-      .eq("is_overtime", true)
-      .is("clock_out", null)
-      .maybeSingle();
-
+  for (const w of workers){
+    const latestEntry = await getTodayEntry(supabase, w.id, date);
+    if (!latestEntry || latestEntry.clock_out) continue;
+    const activeOT = await getActiveOTEntries(supabase, w.id);
     if (activeOT) {
-      console.log(
-        `Worker ${worker.name} has active overtime entry (${activeOT.id}), skipping time-based auto-clockout for main shift`,
-      );
-      await createAudit(supabase, worker.id, siteDate, false, "ACTIVE_OVERTIME");
+      const handled = await handleOTAutoClockOut(supabase, date, t, w, activeOT);
+      if (handled) performed++;
       continue;
     }
-
-    // Calculate clock-out time based on worker's shift_end + 30 minutes
-    const [shiftHour, shiftMin] = worker.shift_end.split(":").map(Number);
-    const clockOutTime = new Date(siteDate);
-    // Add 30 minutes to shift end time
-    const totalMinutes = shiftHour * 60 + shiftMin + 30;
-    const newHour = Math.floor(totalMinutes / 60);
-    const newMin = totalMinutes % 60;
-    clockOutTime.setHours(newHour, newMin, 0, 0); // shift_end + 30 minutes
-
-    const clockInTime = new Date(entry.clock_in);
-    const totalHours = (clockOutTime.getTime() - clockInTime.getTime()) / (1000 * 60 * 60);
-
-    console.log(`Performing auto clock-out at ${currentTime}: totalHours=${totalHours.toFixed(2)}`);
-
-    const { error: updateError } = await supabase
-      .from("clock_entries")
-      .update({
-        clock_out: clockOutTime.toISOString(),
-        source: "system_auto",
-        photo_required: false,
-        auto_clocked_out: true,
-        auto_clockout_type: "time_based",
-        total_hours: totalHours,
-        notes: `Auto clocked-out at ${currentTime} (30 minutes after ${worker.shift_end} shift end)`,
-      })
-      .eq("id", entry.id);
-
-    if (updateError) {
-      console.error(`Error auto clocking out ${worker.name}:`, updateError);
-      await createAudit(supabase, worker.id, siteDate, false, "UNKNOWN");
-      continue;
-    }
-
-    // Counters removed - auto-clockout happens every time conditions are met
-
-    // Log audit
-    await createAudit(supabase, worker.id, siteDate, true, "OK");
-
-    // Send confirmation with worker's shift_end
-    // Format the clock-out time properly
-    const clockOutFormatted = new Intl.DateTimeFormat("en-GB", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-      day: "numeric",
-      month: "short",
-    }).format(clockOutTime);
-
-    const shiftEndFormatted = new Intl.DateTimeFormat("en-GB", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    }).format(new Date(`1970-01-01T${worker.shift_end}`));
-
-    await sendNotification(
-      supabase,
-      worker.id,
-      "⚠️ Auto Clocked-Out: Shift Ended",
-      `You were automatically clocked out at ${clockOutFormatted} because you did not clock out by your scheduled shift end time (${shiftEndFormatted}).\n\n📅 Clock-Out Time: ${clockOutFormatted}\n\n\nIf you worked longer than your shift, please submit a Time Amendment from your timesheet.`,
-      "time_based_auto_clockout",
-      siteDate,
-    );
-
-    console.log(`✉️ Notification sent to ${worker.name}:`, {
-      title: "Auto Clocked-Out: Shift Ended",
-      clockOutTime: clockOutFormatted,
-      shiftEnd: worker.shift_end,
-    });
-
-    // Cancel any remaining clock-out reminders
-    await cancelNotifications(supabase, worker.id, siteDate, `clock_out_.*_shift${worker.shift_end.replace(":", "")}`);
-
+    const [eh, em] = w.shift_end.split(":").map(Number);
+    const clockOut = new Date(date);
+    const totalMin = eh * 60 + em + 30;
+    clockOut.setHours(Math.floor(totalMin / 60), totalMin % 60, 0, 0);
+    const isBase = await isBaseShiftEntry(supabase, latestEntry.id);
+    if (!isBase) continue;
+    const clockIn = new Date(latestEntry.clock_in);
+    const totalHrs = Math.max(0, (clockOut.getTime() - clockIn.getTime()) / 3.6e6);
+    await supabase.from("clock_entries").update({
+      clock_out: clockOut.toISOString(),
+      auto_clocked_out: true,
+      auto_clockout_type: "time_based",
+      total_hours: totalHrs,
+      notes: `Auto clocked-out 30min after shift end ${w.shift_end}`
+    }).eq("id", latestEntry.id);
     performed++;
-    console.log(`✅ Successfully auto clocked-out ${worker.name}`);
+    const title = "Auto Clocked-Out - No Clock-Out Detected";
+    const body = `You were automatically clocked out at ${w.shift_end} +30min.\nIf incorrect, please submit a Time Amendment request.`;
+    await sendNotification(supabase, w.id, title, body, "auto_clockout_time", date);
+    await logNotification(supabase, w.id, "auto_clockout_time", date);
+    await sendPushNotification(supabase, w.id, title, body);
   }
-
-  console.log(`\n========== AUTO CLOCK-OUT COMPLETE: ${performed} performed ==========\n`);
   return performed;
 }
-
-// ============================================================================
-// Guard Checks
-// ============================================================================
-
-async function runGuardChecks(supabase: any, workerId: string, shiftDate: Date): Promise<GuardResult> {
-  // 1. Check if clocked in today
-  const entry = await getTodayEntry(supabase, workerId, shiftDate);
-  if (!entry) {
-    console.log(`  Guard: NO_CLOCK_IN - no entry found for date`);
-    return { canAutoClockOut: false, reason: "NO_CLOCK_IN" };
-  }
-
-  // 2. Check if already clocked out
-  if (entry.clock_out) {
-    console.log(`  Guard: ALREADY_CLOCKED_OUT - clock_out exists: ${entry.clock_out}`);
-    return { canAutoClockOut: false, reason: "ALREADY_CLOCKED_OUT" };
-  }
-
-  console.log(`  Guard: OK - all checks passed`);
-  return { canAutoClockOut: true, reason: "OK" };
-}
-
-// ============================================================================
-// Audit Functions
-// ============================================================================
-
-async function checkAuditExists(supabase: any, workerId: string, shiftDate: Date): Promise<boolean> {
-  const { data } = await supabase
-    .from("auto_clockout_audit")
-    .select("id")
-    .eq("worker_id", workerId)
-    .eq("shift_date", shiftDate.toISOString().split("T")[0])
-    .maybeSingle();
-
-  return !!data;
-}
-
-async function getAudit(supabase: any, workerId: string, shiftDate: Date) {
-  const { data } = await supabase
-    .from("auto_clockout_audit")
-    .select("*")
-    .eq("worker_id", workerId)
-    .eq("shift_date", shiftDate.toISOString().split("T")[0])
-    .maybeSingle();
-
+// ---------- OT Auto Clockout ----------
+async function getActiveOTEntries(supabase, workerId) {
+  const { data } = await supabase.from("clock_entries").select("id,clock_in,clock_out,job_id,is_overtime").eq("worker_id", workerId).eq("is_overtime", true).is("clock_out", null).maybeSingle();
   return data;
 }
-
-async function createAudit(supabase: any, workerId: string, shiftDate: Date, performed: boolean, reason: string) {
-  const { error } = await supabase.from("auto_clockout_audit").insert({
-    worker_id: workerId,
-    shift_date: shiftDate.toISOString().split("T")[0],
-    performed: performed,
-    reason: reason,
-    decided_at: new Date().toISOString(),
-    decided_by: "system",
-  });
-
+async function handleOTAutoClockOut(supabase, date, t, w, ot) {
+  const now = new Date();
+  const inTime = new Date(ot.clock_in);
+  const hrs = (now.getTime() - inTime.getTime()) / 3.6e6;
+  const left = await hasLeftGeofence(supabase, w.id, ot.job_id);
+  if (hrs < 3 && !left) return false;
+  const reason = left ? "LEFT_GEOFENCE" : "OT_LIMIT_REACHED";
+  await supabase.from("clock_entries").update({
+    clock_out: now.toISOString(),
+    auto_clocked_out: true,
+    auto_clockout_type: reason === "LEFT_GEOFENCE" ? "geofence_based" : "ot_time_based",
+    total_hours: Math.max(0, hrs),
+    notes: reason === "LEFT_GEOFENCE" ? "Auto clocked-out (left site during OT)" : "Auto clocked-out after 3-hour OT period"
+  }).eq("id", ot.id);
+  const title = reason === "LEFT_GEOFENCE" ? "Auto Clocked-Out - Left Site During OT" : "Auto Clocked-Out - 3 Hour OT Limit Reached";
+  const body = reason === "LEFT_GEOFENCE" ? "You were automatically clocked out for leaving the job site during OT." : "You were automatically clocked out after reaching the 3-hour OT limit.";
+  await sendNotification(supabase, w.id, title, body, "ot_auto_clockout", date);
+  await logNotification(supabase, w.id, "ot_auto_clockout", date);
+  await sendPushNotification(supabase, w.id, title, body);
+  return true;
+}
+async function hasLeftGeofence(supabase, workerId, jobId) {
+  const { data } = await supabase.from("geofence_events").select("id,timestamp").eq("worker_id", workerId).eq("event_type", "exit_detected").is("resolved_at", null).order("timestamp", {
+    ascending: false
+  }).limit(1).maybeSingle();
+  return !!data;
+}
+// ---------- Additional Helpers ----------
+async function checkActiveOvertimeSessions(supabase, date) {
+  let clockedOut = 0;
+  const { data: activeOTs, error } = await supabase.from("clock_entries").select("id,worker_id,clock_in,job_id,is_overtime,ot_status,auto_clocked_out").eq("is_overtime", true).is("clock_out", null).eq("auto_clocked_out", false);
   if (error) {
-    console.error("Error creating audit:", error);
+    console.error("❌ Fetch OT entries failed:", error);
+    return 0;
   }
+  if (!activeOTs?.length) return 0;
+  console.log(`🔍 Found ${activeOTs.length} active OT sessions`);
+  for (const ot of activeOTs){
+    try {
+      if (ot.ot_status && ot.ot_status !== "pending") {
+        console.log(`⏭️ Skipping OT ${ot.id} — status = ${ot.ot_status}`);
+        continue;
+      }
+      const now = new Date();
+      const inTime = new Date(ot.clock_in);
+      const hrs = (now.getTime() - inTime.getTime()) / 3.6e6;
+      // 🧭 Check geofence exit
+      const { data: exits } = await supabase.from("geofence_events").select("timestamp").eq("clock_entry_id", ot.id).eq("event_type", "exit_detected").is("resolved_at", null).order("timestamp", {
+        ascending: false
+      });
+      if (exits?.length) {
+        const exitTime = new Date(exits[exits.length - 1].timestamp);
+        const graceMs = 5 * 60 * 1000;
+        if (now.getTime() - exitTime.getTime() >= graceMs) {
+          await autoClockOutOT(supabase, ot, date, `Left job site at ${exitTime.toLocaleTimeString("en-GB")} during overtime`, hrs);
+          clockedOut++;
+          continue;
+        }
+      }
+      // ⏱️ 3h → 3h10m window (runs 11 times)
+      if (hrs >= 3 && hrs <= 3.167) {
+        await autoClockOutOT(supabase, ot, date, `3-hour OT limit reached (${hrs.toFixed(2)} h)`, 3);
+        clockedOut++;
+        continue;
+      }
+      // 🕓 Catch-up for missed runs
+      if (hrs > 3.167) {
+        await autoClockOutOT(supabase, ot, date, `Exceeded 3-hour OT limit (${hrs.toFixed(2)} h) — catch-up`, 3);
+        clockedOut++;
+      }
+    } catch (err) {
+      console.error(`❌ Error handling OT ${ot.id}:`, err);
+    }
+  }
+  console.log(`✅ Auto-clocked-out ${clockedOut} OT entries`);
+  return clockedOut;
 }
-
-// ============================================================================
-// Clock Entry Functions
-// ============================================================================
-
-async function getTodayEntry(supabase: any, workerId: string, siteDate: Date): Promise<ClockEntry | null> {
-  // Extract date-only string (YYYY-MM-DD) to avoid timezone issues
-  const dateOnly = siteDate.toISOString().split("T")[0];
-
-  // Query for entries on this date (comparing dates in UTC)
-  const { data } = await supabase
-    .from("clock_entries")
-    .select("id, clock_in, clock_out, job_id, is_overtime, auto_clockout_type")
-    .eq("worker_id", workerId)
-    .gte("clock_in", `${dateOnly}T00:00:00.000Z`)
-    .lt("clock_in", `${dateOnly}T23:59:59.999Z`)
-    .order("clock_in", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
+async function autoClockOutOT(supabase, ot, date, reason, forcedHours = null) {
+  const now = new Date();
+  const inTime = new Date(ot.clock_in);
+  const actualHrs = (now.getTime() - inTime.getTime()) / 3.6e6;
+  const totalHrs = forcedHours ?? Math.max(0, actualHrs);
+  const cappedHrs = totalHrs > 3 ? 3 : totalHrs;
+  console.log(`⏱️ Clocking-out OT ${ot.id} at ${cappedHrs.toFixed(2)} h — ${reason}`);
+  const { error } = await supabase.from("clock_entries").update({
+    clock_out: now.toISOString(),
+    auto_clocked_out: true,
+    auto_clockout_type: reason.includes("site") ? "geofence_based" : "time_based",
+    total_hours: cappedHrs,
+    notes: `Auto clocked-out: ${reason}`,
+    ot_status: "pending"
+  }).eq("id", ot.id);
+  if (error) {
+    console.error(`❌ Update failed for OT ${ot.id}:`, error);
+    return;
+  }
+  await supabase.from("geofence_events").update({
+    resolved_at: now.toISOString()
+  }).eq("clock_entry_id", ot.id).eq("event_type", "exit_detected").is("resolved_at", null);
+  const title = reason.includes("site") ? "Auto Clocked-Out – Left Site During OT" : "Auto Clocked-Out – 3 Hour OT Limit Reached";
+  const body = `You were automatically clocked out from overtime. ${reason}`;
+  await sendNotification(supabase, ot.worker_id, title, body, "ot_auto_clockout", date);
+  await logNotification(supabase, ot.worker_id, "ot_auto_clockout", date);
+  await sendPushNotification(supabase, ot.worker_id, title, body);
+}
+async function getTodayEntry(supabase, id, date) {
+  const d = date.toISOString().split("T")[0];
+  const { data } = await supabase.from("clock_entries").select("id,clock_in,clock_out,job_id,is_overtime").eq("worker_id", id).gte("clock_in", `${d}T00:00:00Z`).lt("clock_in", `${d}T23:59:59Z`).order("clock_in", {
+    ascending: false
+  }).limit(1).maybeSingle();
   return data;
 }
-
-async function isWorkerClockedIn(supabase: any, workerId: string, siteDate: Date): Promise<boolean> {
-  const entry = await getTodayEntry(supabase, workerId, siteDate);
-  return !!entry;
+async function isBaseShiftEntry(supabase, entryId) {
+  const { data } = await supabase.from("clock_entries").select("is_overtime").eq("id", entryId).maybeSingle();
+  return data ? data.is_overtime === false : false;
 }
-
-async function isWorkerStillClockedIn(supabase: any, workerId: string, siteDate: Date): Promise<boolean> {
-  const entry = await getTodayEntry(supabase, workerId, siteDate);
-  return entry && !entry.clock_out;
+async function isWorkerStillClockedIn(supabase, id, date) {
+  const e = await getTodayEntry(supabase, id, date);
+  return !!(e && !e.clock_out);
 }
-
-// ============================================================================
-// Notification Functions
-// ============================================================================
-
-async function checkNotificationSent(
-  supabase: any,
-  workerId: string,
-  notifType: string,
-  siteDate: Date,
-): Promise<boolean> {
-  const { data } = await supabase
-    .from("notification_log")
-    .select("id")
-    .eq("worker_id", workerId)
-    .eq("notification_type", notifType)
-    .eq("shift_date", siteDate.toISOString().split("T")[0])
-    .eq("canceled", false)
-    .maybeSingle();
-
+async function checkNotificationSent(supabase, id, type, date) {
+  const { data } = await supabase.from("notification_log").select("id").eq("worker_id", id).eq("notification_type", type).eq("shift_date", date.toISOString().split("T")[0]).eq("canceled", false).maybeSingle();
   return !!data;
 }
-
-async function logNotification(supabase: any, workerId: string, notifType: string, siteDate: Date) {
+async function logNotification(supabase, id, type, date) {
   await supabase.from("notification_log").insert({
-    worker_id: workerId,
-    notification_type: notifType,
-    shift_date: siteDate.toISOString().split("T")[0],
+    worker_id: id,
+    notification_type: type,
+    shift_date: date.toISOString().split("T")[0],
     sent_at: new Date().toISOString(),
-    canceled: false,
+    canceled: false
   });
 }
-
-async function cancelNotifications(supabase: any, workerId: string, siteDate: Date, typePattern: string) {
-  // For patterns with regex, we need to fetch and filter
-  const { data: logs } = await supabase
-    .from("notification_log")
-    .select("id, notification_type")
-    .eq("worker_id", workerId)
-    .eq("shift_date", siteDate.toISOString().split("T")[0])
-    .eq("canceled", false);
-
-  if (!logs || logs.length === 0) return;
-
-  const regex = new RegExp(typePattern);
-  const idsToCancel = logs.filter((log: any) => regex.test(log.notification_type)).map((log: any) => log.id);
-
-  if (idsToCancel.length > 0) {
-    await supabase.from("notification_log").update({ canceled: true }).in("id", idsToCancel);
-  }
+async function sendNotification(supabase, id, title, body, type, date) {
+  const key = `${id}:${date.toISOString().split("T")[0]}:${type}`;
+  const { data: ex } = await supabase.from("notifications").select("id").eq("dedupe_key", key).maybeSingle();
+  if (ex) return;
+  await supabase.from("notifications").insert({
+    worker_id: id,
+    title,
+    body,
+    type,
+    dedupe_key: key,
+    created_at: new Date().toISOString()
+  });
 }
-
-async function sendNotification(
-  supabase: any,
-  workerId: string,
-  title: string,
-  body: string,
-  type: string,
-  shiftDate?: Date,
-) {
+async function sendPushNotification(supabase, id, title, body) {
+  const { data } = await supabase.from("notification_preferences").select("push_token").eq("worker_id", id).maybeSingle();
+  if (!data?.push_token) {
+    console.log(`No push token found for worker ${id}`);
+    return;
+  }
   try {
-    // Generate dedupe key for idempotency
-    const dateStr = shiftDate ? shiftDate.toISOString().split("T")[0] : new Date().toISOString().split("T")[0];
-    // Unified dedupe key for all auto-clockout types (ensures only 1 notification per day)
-    const dedupeKey =
-      type.includes("auto_clockout") || type.includes("fallback")
-        ? `${workerId}:${dateStr}:auto_clockout`
-        : `${workerId}:${dateStr}:${type}`;
-
-    // Check if already sent (idempotency)
-    const { data: existing } = await supabase
-      .from("notifications")
-      .select("id")
-      .eq("dedupe_key", dedupeKey)
-      .maybeSingle();
-
-    if (existing) {
-      console.log(`Notification already sent: ${dedupeKey}`);
-      return;
-    }
-
-    // Insert notification with dedupe key
-    const { error } = await supabase.from("notifications").insert({
-      worker_id: workerId,
-      title: title,
-      body: body,
-      type: type,
-      dedupe_key: dedupeKey,
-      created_at: new Date().toISOString(),
+    const { error } = await supabase.functions.invoke("send-push-notification", {
+      body: {
+        token: data.push_token,
+        title,
+        body
+      }
     });
-
-    if (error) {
-      console.error("Error sending notification:", error);
-    } else {
-      console.log(`Notification sent: ${type} to worker ${workerId}`);
-    }
-  } catch (error) {
-    console.error("Error in sendNotification:", error);
+    if (error) console.error(`Failed to send push notification to ${id}:`, error);
+    else console.log(`✅ Push notification sent to worker ${id}: ${title}`);
+  } catch (err) {
+    console.error(`Error sending push notification to ${id}:`, err);
   }
 }
-
-// ============================================================================
-// Notification Templates (Updated for Dynamic Shifts)
-// ============================================================================
-
-function getClockInTitle(currentTime: string, shiftStart: string): string {
-  const [currentHour, currentMin] = currentTime.split(":").map(Number);
-  const currentMinutes = currentHour * 60 + currentMin;
-
-  const [shiftHour, shiftMin] = shiftStart.split(":").map(Number);
-  const shiftMinutes = shiftHour * 60 + shiftMin;
-
-  const diff = currentMinutes - shiftMinutes;
-
+function getClockInTitle(t, s) {
+  const [ch, cm] = t.split(":").map(Number);
+  const [sh, sm] = s.split(":").map(Number);
+  const diff = ch * 60 + cm - (sh * 60 + sm);
   if (diff === -5) return "⏰ Shift Starting Soon";
   if (diff === 0) return "🌅 Shift Start Time";
   if (diff === 15) return "⚠️ Late Clock-In Reminder";
-
   return "Clock In Reminder";
 }
-
-function getClockOutTitle(currentTime: string, shiftEnd: string): string {
-  const [currentHour, currentMin] = currentTime.split(":").map(Number);
-  const currentMinutes = currentHour * 60 + currentMin;
-
-  const [shiftHour, shiftMin] = shiftEnd.split(":").map(Number);
-  const shiftMinutes = shiftHour * 60 + shiftMin;
-
-  const diff = currentMinutes - shiftMinutes;
-
+function getClockOutTitle(t, e) {
+  const [ch, cm] = t.split(":").map(Number);
+  const [eh, em] = e.split(":").map(Number);
+  const diff = ch * 60 + cm - (eh * 60 + em);
   if (diff === 0) return "✅ Shift End Time";
   if (diff === 15) return "🏠 Time to Clock Out";
-
   return "Clock Out Reminder";
 }
