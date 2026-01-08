@@ -19,8 +19,7 @@ max_client_conn = 100
 
 [realtime]
 enabled = true
-ip_version = "ipv4"
-port = 54323
+ip_version = "IPv4"
 max_header_length = 4096
 
 [studio]
@@ -50,11 +49,17 @@ verify_jwt = false
 [functions.check-ot-autoclockout]
 verify_jwt = false
 
-[[edge_runtime.schedulers]]
-name = "check-ot-autoclockout"
-schedule = "* * * * *"
-enabled = true
-region = "eu-west-1"
+[functions.validate-rams-acceptance]
+verify_jwt = true
+
+[functions.record-rams-acceptance]
+verify_jwt = true
+
+[functions.check-rams-acceptance-today]
+verify_jwt = true
+
+[functions.proxy-file]
+verify_jwt = false
 
 [analytics]
 enabled = false

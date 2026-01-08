@@ -29,6 +29,7 @@ import OrganizationLogo from "@/components/OrganizationLogo";
 import PWAInstallDialog from "@/components/PWAInstallDialog";
 import NotificationPanel from "@/components/NotificationPanel";
 import OvertimeConfirmationDialog from "@/components/OvertimeConfirmationDialog";
+import RAMSAcceptanceDialog from "@/components/RAMSAcceptanceDialog";
 import { useWorker } from "@/contexts/WorkerContext";
 import { useUpdate } from "@/contexts/UpdateContext";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -53,6 +54,9 @@ interface Job {
   longitude: number;
   geofence_radius: number;
   is_active: boolean;
+  show_rams_and_site_info?: boolean;
+  terms_and_conditions_url?: string;
+  waiver_url?: string;
 }
 
 interface ClockEntry {
@@ -112,6 +116,20 @@ export default function ClockScreen() {
     jobId: string;
   } | null>(null);
   const [isRequestingOvertime, setIsRequestingOvertime] = useState(false);
+
+  // RAMS acceptance state
+  const [showRamsDialog, setShowRamsDialog] = useState(false);
+  const [ramsLoading, setRamsLoading] = useState(false);
+  const [ramsData, setRamsData] = useState<{
+    termsUrl: string | null;
+    waiverUrl: string | null;
+    jobName: string;
+  } | null>(null);
+  const [pendingClockInData, setPendingClockInData] = useState<{
+    photoUrl: string;
+    location: LocationData;
+    jobId: string;
+  } | null>(null);
 
   // Set worker from context
   useEffect(() => {
@@ -213,7 +231,11 @@ export default function ClockScreen() {
   }, [worker?.id]);
 
   const loadJobs = async (showToast = false) => {
-    const { data, error } = await supabase.from("jobs").select("*").eq("is_active", true).order("name");
+    const { data, error } = await supabase
+      .from("jobs")
+      .select("id, name, code, latitude, longitude, geofence_radius, is_active, show_rams_and_site_info, terms_and_conditions_url, waiver_url")
+      .eq("is_active", true)
+      .order("name");
 
     if (error) {
       toast.error("Failed to load jobs");
@@ -756,6 +778,71 @@ export default function ClockScreen() {
     setLoading(true);
 
     try {
+      // Get selected job data
+      const job = jobs.find((j) => j.id === selectedJobId);
+      if (!job) {
+        toast.error("Selected job not found");
+        setLoading(false);
+        return;
+      }
+
+      // Check if RAMS acceptance is required for this job
+      if (job.show_rams_and_site_info) {
+        console.log("🔒 RAMS acceptance required for job:", job.name);
+
+        // Check if already accepted today
+        try {
+          const { data: checkData, error: checkError } = await supabase.functions.invoke(
+            'check-rams-acceptance-today',
+            {
+              body: { worker_id: worker.id, job_id: selectedJobId }
+            }
+          );
+
+          if (checkError) {
+            console.error("Error checking RAMS acceptance:", checkError);
+            toast.error("Failed to verify RAMS acceptance status");
+            setLoading(false);
+            return;
+          }
+
+          console.log("RAMS check result:", checkData);
+
+          if (!checkData?.already_accepted) {
+            console.log("📋 Worker needs to accept RAMS");
+            // Show RAMS dialog
+            setRamsData({
+              termsUrl: job.terms_and_conditions_url || null,
+              waiverUrl: job.waiver_url || null,
+              jobName: job.name
+            });
+            setShowRamsDialog(true);
+            setLoading(false);
+            return; // Stop here - will continue after RAMS acceptance
+          }
+
+          console.log("✅ RAMS already accepted today, continuing with clock-in");
+        } catch (error) {
+          console.error("Exception checking RAMS acceptance:", error);
+          toast.error("Failed to check RAMS acceptance");
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Continue with normal clock-in flow
+      await performClockIn();
+    } catch (error) {
+      console.error("Clock in error:", error);
+      toast.error("Failed to clock in");
+      setLoading(false);
+    }
+  };
+
+  const performClockIn = async () => {
+    if (!selectedJobId || !worker) return;
+
+    try {
       // Request fresh GPS location with validation
       toast.info("Getting your live location...");
       let freshLocation: LocationData;
@@ -840,6 +927,51 @@ export default function ClockScreen() {
     }
 
     setLoading(false);
+  };
+
+  const handleRamsAccept = async () => {
+    if (!ramsData || !worker || !selectedJobId) return;
+
+    setRamsLoading(true);
+
+    try {
+      console.log("📝 Recording RAMS acceptance...");
+
+      // Record RAMS acceptance
+      const { data: acceptData, error: acceptError } = await supabase.functions.invoke(
+        'record-rams-acceptance',
+        {
+          body: {
+            worker_id: worker.id,
+            job_id: selectedJobId,
+            terms_and_conditions_url: ramsData.termsUrl,
+            waiver_url: ramsData.waiverUrl
+          }
+        }
+      );
+
+      if (acceptError) {
+        console.error("Error recording RAMS acceptance:", acceptError);
+        toast.error("Failed to record RAMS acceptance");
+        setRamsLoading(false);
+        return;
+      }
+
+      console.log("✅ RAMS acceptance recorded:", acceptData);
+      toast.success("RAMS documents accepted");
+
+      // Close dialog
+      setShowRamsDialog(false);
+      setRamsLoading(false);
+
+      // Continue with clock-in
+      setLoading(true);
+      await performClockIn();
+    } catch (error) {
+      console.error("Exception recording RAMS acceptance:", error);
+      toast.error("Failed to record acceptance");
+      setRamsLoading(false);
+    }
   };
 
   const handleClockOut = async () => {
@@ -1401,6 +1533,17 @@ export default function ClockScreen() {
           setLoading(false);
         }}
         isLoading={isRequestingOvertime}
+      />
+
+      {/* RAMS Acceptance Dialog */}
+      <RAMSAcceptanceDialog
+        open={showRamsDialog}
+        onOpenChange={setShowRamsDialog}
+        onAccept={handleRamsAccept}
+        jobName={ramsData?.jobName || ''}
+        termsUrl={ramsData?.termsUrl || null}
+        waiverUrl={ramsData?.waiverUrl || null}
+        loading={ramsLoading}
       />
     </div>
   );

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import TermsAndPrivacyDialog from '@/components/TermsAndPrivacyDialog';
 
 interface Worker {
   id: string;
@@ -19,6 +20,8 @@ interface Worker {
   must_change_password: boolean;
   first_login_info_dismissed: boolean;
   pwa_install_info_dismissed: boolean;
+  terms_accepted: boolean | null;
+  terms_accepted_at: string | null;
   shift_start: string;
   shift_end: string;
   shift_days: number[];
@@ -53,6 +56,7 @@ export const WorkerProvider: React.FC<WorkerProviderProps> = ({ children }) => {
   const [worker, setWorker] = useState<Worker | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [showTermsDialog, setShowTermsDialog] = useState(false);
 
   const fetchWorker = async () => {
     try {
@@ -136,9 +140,36 @@ export const WorkerProvider: React.FC<WorkerProviderProps> = ({ children }) => {
     fetchWorker();
   }, []);
 
+  // Check if worker needs to accept terms
+  useEffect(() => {
+    if (worker && !loading) {
+      // Show terms dialog if not accepted
+      if (!worker.terms_accepted) {
+        console.log('📋 Worker has not accepted terms, showing dialog');
+        setShowTermsDialog(true);
+      }
+    }
+  }, [worker, loading]);
+
+  const handleTermsAccepted = async () => {
+    console.log('✅ Terms accepted, refreshing worker data');
+    setShowTermsDialog(false);
+    // Refresh worker data to get updated terms_accepted status
+    await fetchWorker();
+  };
+
   return (
     <WorkerContext.Provider value={{ worker, loading, error, refreshWorker: fetchWorker }}>
       {children}
+
+      {/* Terms & Privacy Dialog - blocks app usage until accepted */}
+      {worker && (
+        <TermsAndPrivacyDialog
+          open={showTermsDialog}
+          onAccepted={handleTermsAccepted}
+          workerEmail={worker.email}
+        />
+      )}
     </WorkerContext.Provider>
   );
 };

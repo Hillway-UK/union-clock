@@ -72,6 +72,86 @@ export type Database = {
           },
         ]
       }
+      amendment_requests: {
+        Row: {
+          clock_entry_id: string | null
+          created_at: string
+          created_clock_entry_id: string | null
+          group_id: string
+          id: string
+          manager_id: string | null
+          manager_notes: string | null
+          payload: Json
+          processed_at: string | null
+          reason: string
+          status: string
+          type: string
+          updated_at: string
+          worker_id: string
+        }
+        Insert: {
+          clock_entry_id?: string | null
+          created_at?: string
+          created_clock_entry_id?: string | null
+          group_id?: string
+          id?: string
+          manager_id?: string | null
+          manager_notes?: string | null
+          payload: Json
+          processed_at?: string | null
+          reason: string
+          status?: string
+          type: string
+          updated_at?: string
+          worker_id: string
+        }
+        Update: {
+          clock_entry_id?: string | null
+          created_at?: string
+          created_clock_entry_id?: string | null
+          group_id?: string
+          id?: string
+          manager_id?: string | null
+          manager_notes?: string | null
+          payload?: Json
+          processed_at?: string | null
+          reason?: string
+          status?: string
+          type?: string
+          updated_at?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amendment_requests_clock_entry_id_fkey"
+            columns: ["clock_entry_id"]
+            isOneToOne: false
+            referencedRelation: "clock_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amendment_requests_created_clock_entry_id_fkey"
+            columns: ["created_clock_entry_id"]
+            isOneToOne: false
+            referencedRelation: "clock_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amendment_requests_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "managers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amendment_requests_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
@@ -609,6 +689,9 @@ export type Database = {
           shift_days: number[] | null
           shift_end: string | null
           shift_start: string | null
+          show_rams_and_site_info: boolean | null
+          terms_and_conditions_url: string | null
+          waiver_url: string | null
         }
         Insert: {
           address: string
@@ -629,6 +712,9 @@ export type Database = {
           shift_days?: number[] | null
           shift_end?: string | null
           shift_start?: string | null
+          show_rams_and_site_info?: boolean | null
+          terms_and_conditions_url?: string | null
+          waiver_url?: string | null
         }
         Update: {
           address?: string
@@ -649,6 +735,9 @@ export type Database = {
           shift_days?: number[] | null
           shift_end?: string | null
           shift_start?: string | null
+          show_rams_and_site_info?: boolean | null
+          terms_and_conditions_url?: string | null
+          waiver_url?: string | null
         }
         Relationships: [
           {
@@ -934,6 +1023,51 @@ export type Database = {
         }
         Relationships: []
       }
+      rams_acceptances: {
+        Row: {
+          accepted_at: string
+          created_at: string
+          id: string
+          job_id: string
+          terms_and_conditions_url: string | null
+          waiver_url: string | null
+          worker_id: string
+        }
+        Insert: {
+          accepted_at?: string
+          created_at?: string
+          id?: string
+          job_id: string
+          terms_and_conditions_url?: string | null
+          waiver_url?: string | null
+          worker_id: string
+        }
+        Update: {
+          accepted_at?: string
+          created_at?: string
+          id?: string
+          job_id?: string
+          terms_and_conditions_url?: string | null
+          waiver_url?: string | null
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rams_acceptances_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rams_acceptances_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscription_audit_log: {
         Row: {
           action: string
@@ -1170,6 +1304,8 @@ export type Database = {
           shift_days: number[] | null
           shift_end: string | null
           shift_start: string | null
+          terms_accepted: boolean | null
+          terms_accepted_at: string | null
           updated_at: string | null
         }
         Insert: {
@@ -1192,6 +1328,8 @@ export type Database = {
           shift_days?: number[] | null
           shift_end?: string | null
           shift_start?: string | null
+          terms_accepted?: boolean | null
+          terms_accepted_at?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -1214,6 +1352,8 @@ export type Database = {
           shift_days?: number[] | null
           shift_end?: string | null
           shift_start?: string | null
+          terms_accepted?: boolean | null
+          terms_accepted_at?: string | null
           updated_at?: string | null
         }
         Relationships: [
