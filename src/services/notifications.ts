@@ -79,8 +79,8 @@ export class NotificationService {
   static async attemptPushNotificationBoth(title: string, body: string): Promise<void> {
     const options = {
       body,
-      icon: '/icon-192.png',
-      badge: '/icon-192.png',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
       tag: 'autotime-notification',
       requireInteraction: false,
       silent: false,
@@ -140,8 +140,8 @@ export class NotificationService {
       if (reg) {
         await reg.showNotification(title, {
           body,
-          icon: '/icon-192.png',
-          badge: '/icon-192.png',
+          icon: '/icons/icon-192.png',
+          badge: '/icons/icon-192.png',
           tag: 'autotime-notification',
           requireInteraction: false,
           silent: false,
@@ -152,8 +152,8 @@ export class NotificationService {
       // 3) Fallback to PAGE Notification API (works in your tests)
       new Notification(title, {
         body,
-        icon: '/icon-192.png',
-        badge: '/icon-192.png',
+        icon: '/icons/icon-192.png',
+        badge: '/icons/icon-192.png',
         tag: 'autotime-notification',
         requireInteraction: false,
         silent: false,

@@ -171,8 +171,8 @@ self.addEventListener("push", (event) => {
   const title = data.title || "AutoTime";
   const options = {
     body: data.body || "New notification",
-    icon: "/icon-192.png",
-    badge: "/icon-192.png",
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
     tag: "autotime-notification",
     requireInteraction: false,
     silent: false,
