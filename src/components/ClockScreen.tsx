@@ -1215,7 +1215,7 @@ export default function ClockScreen() {
             <div className="flex items-center space-x-3">
               <OrganizationLogo organizationLogoUrl={worker.organizations?.logo_url} size="medium" showText={false} />
               <div>
-                <h1 className="text-xl font-bold text-primary-foreground">AutoTime</h1>
+                <h1 className="text-xl font-bold text-primary-foreground">TimeTrack</h1>
               </div>
             </div>
 

@@ -81,7 +81,7 @@ export class NotificationService {
       body,
       icon: '/icons/icon-192.png',
       badge: '/icons/icon-192.png',
-      tag: 'autotime-notification',
+      tag: 'timetrack-notification',
       requireInteraction: false,
       silent: false,
     };
@@ -142,7 +142,7 @@ export class NotificationService {
           body,
           icon: '/icons/icon-192.png',
           badge: '/icons/icon-192.png',
-          tag: 'autotime-notification',
+          tag: 'timetrack-notification',
           requireInteraction: false,
           silent: false,
         });
@@ -154,7 +154,7 @@ export class NotificationService {
         body,
         icon: '/icons/icon-192.png',
         badge: '/icons/icon-192.png',
-        tag: 'autotime-notification',
+        tag: 'timetrack-notification',
         requireInteraction: false,
         silent: false,
       });

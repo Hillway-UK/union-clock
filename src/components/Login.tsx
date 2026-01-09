@@ -145,7 +145,7 @@ export default function Login() {
         }
         
         console.log('✅ Login complete, redirecting to clock screen');
-        toast.success('Welcome to AutoTime!', {
+        toast.success('Welcome to TimeTrack!', {
           description: 'Loading your dashboard...',
           className: 'bg-success text-success-foreground border-l-4 border-black',
           duration: 2000

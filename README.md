@@ -1,8 +1,8 @@
-# AutoTime
+# TimeTrack
 
 ## Project info
 
-Modern workforce time management by AutoTime.
+Modern workforce time management by TimeTrack.
 
 ## Local development
 

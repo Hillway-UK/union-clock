@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import autoTimeLogo from '@/assets/autotime-logo.jpg';
+import timeTrackLogo from '@/assets/autotime-logo.jpg';
 
 interface OrganizationLogoProps {
   organizationLogoUrl?: string | null;
@@ -18,7 +18,7 @@ export const OrganizationLogo: React.FC<OrganizationLogoProps> = React.memo(({
   const [imageLoaded, setImageLoaded] = useState(false);
   const prevUrlRef = useRef<string | null | undefined>(organizationLogoUrl);
   
-  const logoSrc = (imageError || !organizationLogoUrl) ? autoTimeLogo : organizationLogoUrl;
+  const logoSrc = (imageError || !organizationLogoUrl) ? timeTrackLogo : organizationLogoUrl;
   const logoSizeClass = size === 'small' ? 'h-8' : size === 'medium' ? 'h-10' : 'h-12';
   const textSizeClass = size === 'small' ? 'text-lg' : 'text-2xl';
 
@@ -55,7 +55,7 @@ export const OrganizationLogo: React.FC<OrganizationLogoProps> = React.memo(({
       {showText && (
         <div>
           <div className={`font-heading font-extrabold ${textSizeClass} text-primary`}>
-            AutoTime
+            TimeTrack
           </div>
           {size === 'large' && (
             <div className="font-body text-xs text-muted-foreground tracking-widest -mt-1">

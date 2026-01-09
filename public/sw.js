@@ -1,5 +1,5 @@
 const VERSION = '1.0.2';
-const CACHE_NAME = `autotime-v${VERSION}`;
+const CACHE_NAME = `timetrack-v${VERSION}`;
 const PRECACHE_URLS = [
   '/',
   '/manifest.webmanifest',
@@ -164,16 +164,16 @@ self.addEventListener("push", (event) => {
     try {
       data = event.data.json();
     } catch (e) {
-      data = { title: "AutoTime", body: event.data.text() };
+      data = { title: "TimeTrack", body: event.data.text() };
     }
   }
 
-  const title = data.title || "AutoTime";
+  const title = data.title || "TimeTrack";
   const options = {
     body: data.body || "New notification",
     icon: "/icons/icon-192.png",
     badge: "/icons/icon-192.png",
-    tag: "autotime-notification",
+    tag: "timetrack-notification",
     requireInteraction: false,
     silent: false,
     data: data,

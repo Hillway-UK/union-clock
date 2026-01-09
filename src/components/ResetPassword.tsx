@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Eye, EyeOff, Lock, Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import AutoTimeLogo from '@/components/AutoTimeLogo';
+import TimeTrackLogo from '@/components/TimeTrackLogo';
 
 const passwordSchema = z.object({
   password: z.string()
@@ -137,7 +137,7 @@ export default function ResetPassword() {
 
       // Sign out to force fresh login with new password
       await supabase.auth.signOut();
-      window.location.href = 'https://autotimeworkers.hillwayco.uk/login';
+      window.location.href = 'https://timetrackworkers.hillwayco.uk/login';
     } catch (error) {
       console.error('💥 Unexpected password reset error:', error);
       const errorMsg = error instanceof Error ? error.message : 'An unexpected error occurred';
@@ -155,7 +155,7 @@ export default function ResetPassword() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
-          <AutoTimeLogo size="large" className="justify-center mb-2" />
+          <TimeTrackLogo size="large" className="justify-center mb-2" />
           <p className="mt-2 text-gray-600">Reset Your Password</p>
         </div>
         

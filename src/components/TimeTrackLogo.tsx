@@ -1,31 +1,31 @@
 import React from 'react';
-import autoTimeLogo from '@/assets/autotime-logo.jpg';
+import timeTrackLogo from '@/assets/autotime-logo.jpg';
 
-interface AutoTimeLogoProps {
+interface TimeTrackLogoProps {
   size?: 'small' | 'large';
   className?: string;
   showText?: boolean;
 }
 
-export const AutoTimeLogo: React.FC<AutoTimeLogoProps> = ({ 
-  size = 'large', 
+export const TimeTrackLogo: React.FC<TimeTrackLogoProps> = ({
+  size = 'large',
   className = '',
-  showText = true 
+  showText = true
 }) => {
   const logoSizeClass = size === 'small' ? 'h-8' : 'h-12';
   const textSizeClass = size === 'small' ? 'text-lg' : 'text-2xl';
-  
+
   return (
     <div className={`flex items-center space-x-3 ${className}`}>
-      <img 
-        src={autoTimeLogo} 
-        alt="AutoTime Logo" 
+      <img
+        src={timeTrackLogo}
+        alt="TimeTrack Logo"
         className={`${logoSizeClass} w-auto object-contain`}
       />
       {showText && (
         <div>
           <div className={`font-heading font-extrabold ${textSizeClass} text-primary`}>
-            AutoTime
+            TimeTrack
           </div>
           {size === 'large' && (
             <div className="font-body text-xs text-muted-foreground tracking-widest -mt-1">
@@ -38,4 +38,4 @@ export const AutoTimeLogo: React.FC<AutoTimeLogoProps> = ({
   );
 };
 
-export default AutoTimeLogo;
+export default TimeTrackLogo;

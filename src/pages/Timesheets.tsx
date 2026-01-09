@@ -583,7 +583,7 @@ export default function Timesheets() {
                 showText={false} 
               />
               <div>
-                <h1 className="text-xl font-bold text-white">AutoTime</h1>
+                <h1 className="text-xl font-bold text-white">TimeTrack</h1>
                 <p className="text-sm text-gray-300">Timesheets</p>
               </div>
             </div>

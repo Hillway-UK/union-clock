@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Mobile-first PWA optimizations for AutoTime */
+/* Mobile-first PWA optimizations for TimeTrack */
 html {
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
@@ -60,18 +60,18 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 7%;
 
-    /* AutoTime Theme - Black/White/Grey */
+    /* TimeTrack Theme - Black/White/Grey */
     --primary: 0 0% 0%; /* Black */
     --primary-foreground: 0 0% 100%; /* White */
     --primary-dark: 0 0% 20%; /* Dark Grey */
-    --autotime-black: 0 0% 0%; /* #000000 */
-    --autotime-dark-grey: 0 0% 20%; /* #333333 */
-    --autotime-mid-grey: 0 0% 50%; /* #808080 */
-    --autotime-light-grey: 0 0% 92%; /* #EAEAEA */
-    --autotime-white: 0 0% 100%; /* #FFFFFF */
-    --autotime-success: 142 76% 36%; /* Green for clock-in */
-    --autotime-danger: 0 84% 60%; /* Red for clock-out */
-    --autotime-warning: 43 96% 56%; /* Orange for warnings */
+    --timetrack-black: 0 0% 0%; /* #000000 */
+    --timetrack-dark-grey: 0 0% 20%; /* #333333 */
+    --timetrack-mid-grey: 0 0% 50%; /* #808080 */
+    --timetrack-light-grey: 0 0% 92%; /* #EAEAEA */
+    --timetrack-white: 0 0% 100%; /* #FFFFFF */
+    --timetrack-success: 142 76% 36%; /* Green for clock-in */
+    --timetrack-danger: 0 84% 60%; /* Red for clock-out */
+    --timetrack-warning: 43 96% 56%; /* Orange for warnings */
 
     --secondary: 0 0% 92%;
     --secondary-foreground: 0 0% 7%;
@@ -99,11 +99,11 @@ All colors MUST be HSL.
     --error: 0 84% 60%;
     --error-foreground: 0 0% 100%;
 
-    /* AutoTime Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(var(--autotime-black)), hsl(var(--autotime-dark-grey)));
+    /* TimeTrack Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--timetrack-black)), hsl(var(--timetrack-dark-grey)));
     --gradient-success: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 76% 30%));
     --gradient-error: linear-gradient(135deg, hsl(0 84% 60%), hsl(0 84% 52%));
-    --gradient-background: linear-gradient(135deg, hsl(var(--autotime-black)), hsl(var(--autotime-mid-grey)));
+    --gradient-background: linear-gradient(135deg, hsl(var(--timetrack-black)), hsl(var(--timetrack-mid-grey)));
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;

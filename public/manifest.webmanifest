@@ -1,6 +1,6 @@
 {
-  "name": "AutoTime",
-  "short_name": "AutoTime",
+  "name": "TimeTrack",
+  "short_name": "TimeTrack",
   "start_url": "/?source=pwa",
   "display": "standalone",
   "orientation": "portrait",

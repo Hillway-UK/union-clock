@@ -77,7 +77,7 @@ export default function TermsAndPrivacyDialog({ open, onAccepted, workerEmail }:
         >
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
             <DialogTitle className="text-xl font-bold text-center">
-              AUTOTIME
+              TIMETRACK
             </DialogTitle>
             <p className="text-sm text-muted-foreground text-center">
               Privacy Policy & Terms of Service
@@ -95,7 +95,7 @@ export default function TermsAndPrivacyDialog({ open, onAccepted, workerEmail }:
                   <div>
                     <h3 className="font-semibold">🔒 1. Introduction</h3>
                     <p className="text-muted-foreground mt-1">
-                      Welcome to AutoTime ("we", "us", "our"). We are committed to protecting your personal information in accordance with the UK General Data Protection Regulation (UK GDPR) and the Data Protection Act 2018. This Privacy Policy explains what we collect, why we collect it, how we use it, and the rights you have.
+                      Welcome to TimeTrack ("we", "us", "our"). We are committed to protecting your personal information in accordance with the UK General Data Protection Regulation (UK GDPR) and the Data Protection Act 2018. This Privacy Policy explains what we collect, why we collect it, how we use it, and the rights you have.
                     </p>
                   </div>
 
@@ -103,7 +103,7 @@ export default function TermsAndPrivacyDialog({ open, onAccepted, workerEmail }:
                     <h3 className="font-semibold">📌 2. Data We Collect</h3>
                     <div className="text-muted-foreground mt-1 space-y-2">
                       <p><strong>2.1 Information You Provide:</strong> Name or display name, email address or phone number, shift details, availability, and work records, photos taken or uploaded within the app, notes or other content you submit.</p>
-                      <p><strong>2.2 Photos (Identity & Attendance Verification):</strong> AutoTime may request access to your camera or photo library to capture a profile photo, verify your identity, verify clock-in or clock-out events, and prevent fraudulent attendance logging. You will always be asked for permission first.</p>
+                      <p><strong>2.2 Photos (Identity & Attendance Verification):</strong> TimeTrack may request access to your camera or photo library to capture a profile photo, verify your identity, verify clock-in or clock-out events, and prevent fraudulent attendance logging. You will always be asked for permission first.</p>
                       <p><strong>2.3 Location Data (Attendance Validation):</strong> When you log in, clock in, or use location-based features, we may collect approximate or precise GPS location and device location information from your mobile OS. This helps confirm legitimate attendance and prevents false shift reporting.</p>
                       <p><strong>2.4 Automatically Collected Data:</strong> Device type and operating system, browser type (if using web app), IP address and timezone, usage logs such as login timestamps.</p>
                       <p><strong>2.5 Third-Party Services:</strong> We use secure third-party providers such as Supabase for authentication, storage, and processing. These services act as data processors under UK GDPR.</p>
@@ -113,14 +113,14 @@ export default function TermsAndPrivacyDialog({ open, onAccepted, workerEmail }:
                   <div>
                     <h3 className="font-semibold">🛠️ 3. How We Use Your Data</h3>
                     <p className="text-muted-foreground mt-1">
-                      We use your data to: provide shift management and time-tracking features, verify identity and attendance using photos & location, prevent fraud and ensure workplace integrity, improve app performance and security, send essential service notifications, provide customer support, and maintain accurate worker logs. AutoTime does not sell your personal data.
+                      We use your data to: provide shift management and time-tracking features, verify identity and attendance using photos & location, prevent fraud and ensure workplace integrity, improve app performance and security, send essential service notifications, provide customer support, and maintain accurate worker logs. TimeTrack does not sell your personal data.
                     </p>
                   </div>
 
                   <div>
                     <h3 className="font-semibold">⚖️ 4. Legal Bases for Processing (UK GDPR)</h3>
                     <p className="text-muted-foreground mt-1">
-                      We rely on the following lawful bases: <strong>Contractual necessity</strong> – to provide the AutoTime features; <strong>Legitimate interests</strong> – fraud prevention, workforce management, safety; <strong>Consent</strong> – access to photos and location services; <strong>Legal obligation</strong> – compliance with UK employment or record-keeping laws. You may withdraw consent at any time.
+                      We rely on the following lawful bases: <strong>Contractual necessity</strong> – to provide the TimeTrack features; <strong>Legitimate interests</strong> – fraud prevention, workforce management, safety; <strong>Consent</strong> – access to photos and location services; <strong>Legal obligation</strong> – compliance with UK employment or record-keeping laws. You may withdraw consent at any time.
                     </p>
                   </div>
 
@@ -141,14 +141,14 @@ export default function TermsAndPrivacyDialog({ open, onAccepted, workerEmail }:
                   <div>
                     <h3 className="font-semibold">👤 7. Your UK GDPR Rights</h3>
                     <p className="text-muted-foreground mt-1">
-                      You have the right to: access your personal data, request correction of inaccurate data, request deletion of your data, withdraw consent (photos, location, etc.), restrict or object to processing, request data portability, and file a complaint with the ICO. Contact us to exercise your rights: 📧 support@autotime.com
+                      You have the right to: access your personal data, request correction of inaccurate data, request deletion of your data, withdraw consent (photos, location, etc.), restrict or object to processing, request data portability, and file a complaint with the ICO. Contact us to exercise your rights: 📧 support@timetrack.com
                     </p>
                   </div>
 
                   <div>
                     <h3 className="font-semibold">🚫 8. Children</h3>
                     <p className="text-muted-foreground mt-1">
-                      AutoTime is not intended for users under 16.
+                      TimeTrack is not intended for users under 16.
                     </p>
                   </div>
 
@@ -162,7 +162,7 @@ export default function TermsAndPrivacyDialog({ open, onAccepted, workerEmail }:
                   <div>
                     <h3 className="font-semibold">📬 10. Contact</h3>
                     <p className="text-muted-foreground mt-1">
-                      For privacy questions or requests: 📧 support@autotime.com
+                      For privacy questions or requests: 📧 support@timetrack.com
                     </p>
                   </div>
                 </div>
@@ -184,7 +184,7 @@ export default function TermsAndPrivacyDialog({ open, onAccepted, workerEmail }:
                   </div>
 
                   <div>
-                    <h3 className="font-semibold">2. Use of AutoTime</h3>
+                    <h3 className="font-semibold">2. Use of TimeTrack</h3>
                     <p className="text-muted-foreground mt-1">
                       You agree to use the App for lawful and work-related purposes only. You must not attempt to misuse, hack, or interfere with the App.
                     </p>
@@ -200,14 +200,14 @@ export default function TermsAndPrivacyDialog({ open, onAccepted, workerEmail }:
                   <div>
                     <h3 className="font-semibold">4. Photo & Location Requirements</h3>
                     <p className="text-muted-foreground mt-1">
-                      Because AutoTime is used for workforce time management, by using the app, you acknowledge and agree that the app may request your location when you log in or clock in/out, and the app may request access to your camera or photos for identity verification. These features help prevent false attendance and ensure workplace compliance. You may disable permissions at any time, but some features may stop working.
+                      Because TimeTrack is used for workforce time management, by using the app, you acknowledge and agree that the app may request your location when you log in or clock in/out, and the app may request access to your camera or photos for identity verification. These features help prevent false attendance and ensure workplace compliance. You may disable permissions at any time, but some features may stop working.
                     </p>
                   </div>
 
                   <div>
                     <h3 className="font-semibold">5. Data Ownership</h3>
                     <p className="text-muted-foreground mt-1">
-                      You retain ownership of the content and data you submit. By using the App, you grant AutoTime permission to process your data solely for delivering the service.
+                      You retain ownership of the content and data you submit. By using the App, you grant TimeTrack permission to process your data solely for delivering the service.
                     </p>
                   </div>
 
@@ -221,7 +221,7 @@ export default function TermsAndPrivacyDialog({ open, onAccepted, workerEmail }:
                   <div>
                     <h3 className="font-semibold">7. Limitation of Liability</h3>
                     <p className="text-muted-foreground mt-1">
-                      To the maximum extent permitted by law: AutoTime is provided "as is". We are not liable for indirect, incidental, or consequential damages. Our liability will not exceed the amount paid for the service (if any).
+                      To the maximum extent permitted by law: TimeTrack is provided "as is". We are not liable for indirect, incidental, or consequential damages. Our liability will not exceed the amount paid for the service (if any).
                     </p>
                   </div>
 
@@ -242,7 +242,7 @@ export default function TermsAndPrivacyDialog({ open, onAccepted, workerEmail }:
                   <div>
                     <h3 className="font-semibold">10. Contact</h3>
                     <p className="text-muted-foreground mt-1">
-                      📧 support@autotime.com
+                      📧 support@timetrack.com
                     </p>
                   </div>
                 </div>
@@ -294,7 +294,7 @@ export default function TermsAndPrivacyDialog({ open, onAccepted, workerEmail }:
           <AlertDialogHeader>
             <AlertDialogTitle>Cannot Use App Without Accepting</AlertDialogTitle>
             <AlertDialogDescription>
-              You must accept the Privacy Policy and Terms of Service to use AutoTime. 
+              You must accept the Privacy Policy and Terms of Service to use TimeTrack. 
               If you decline, you will be signed out of the app.
             </AlertDialogDescription>
           </AlertDialogHeader>

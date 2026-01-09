@@ -41,7 +41,7 @@ export default function Profile() {
                 showText={false} 
               />
               <div>
-                <h1 className="text-xl font-bold text-white">AutoTime</h1>
+                <h1 className="text-xl font-bold text-white">TimeTrack</h1>
               </div>
             </div>
             <button

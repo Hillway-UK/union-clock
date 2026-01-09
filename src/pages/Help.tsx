@@ -24,7 +24,7 @@ export default function Help() {
                 showText={false} 
               />
               <div>
-                <h1 className="text-xl font-bold text-white">AutoTime</h1>
+                <h1 className="text-xl font-bold text-white">TimeTrack</h1>
               </div>
             </div>
             <button
@@ -61,7 +61,7 @@ export default function Help() {
                   </AccordionTrigger>
                   <AccordionContent className="space-y-4">
                     <p className="text-sm text-muted-foreground">
-                      Install AutoTime as an app on your iPhone for the best experience with faster loading, full-screen mode, and push notifications.
+                      Install TimeTrack as an app on your iPhone for the best experience with faster loading, full-screen mode, and push notifications.
                     </p>
 
                     <div className="space-y-3">
@@ -109,7 +109,7 @@ export default function Help() {
                         </div>
                         <div>
                           <p className="font-medium text-sm">Confirm Installation</p>
-                          <p className="text-xs text-muted-foreground">Tap "Add" to install AutoTime to your home screen</p>
+                          <p className="text-xs text-muted-foreground">Tap "Add" to install TimeTrack to your home screen</p>
                         </div>
                       </div>
 
@@ -122,7 +122,7 @@ export default function Help() {
                             Done!
                             <Home className="h-3 w-3" />
                           </p>
-                          <p className="text-xs text-muted-foreground">AutoTime is now installed on your home screen like a native app</p>
+                          <p className="text-xs text-muted-foreground">TimeTrack is now installed on your home screen like a native app</p>
                         </div>
                       </div>
                     </div>
@@ -435,7 +435,7 @@ export default function Help() {
                   </AccordionTrigger>
                   <AccordionContent className="space-y-3">
                     <p className="text-sm text-muted-foreground">
-                      Keep AutoTime up to date to get the latest features and bug fixes.
+                      Keep TimeTrack up to date to get the latest features and bug fixes.
                     </p>
                     
                     <div>
