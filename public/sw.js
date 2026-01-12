@@ -1,4 +1,4 @@
-const VERSION = '1.0.2';
+const VERSION = '1.0.3';
 const CACHE_NAME = `timetrack-v${VERSION}`;
 const PRECACHE_URLS = [
   '/',
@@ -118,6 +118,9 @@ self.addEventListener('fetch', (event) => {
 
   // Don't cache non-GET requests
   if (request.method !== 'GET') return;
+
+  // Skip chrome-extension and other non-http(s) URLs
+  if (!url.protocol.startsWith('http')) return;
 
   // NetworkFirst for HTML files
   if (url.pathname.endsWith('.html') || url.pathname === '/') {
