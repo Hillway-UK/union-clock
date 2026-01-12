@@ -71,40 +71,14 @@ export const WorkerProvider: React.FC<WorkerProviderProps> = ({ children }) => {
         return;
       }
 
-      // Try to fetch worker with organization in one query
-      let { data: workerData, error: workerError } = await supabase
+      // Fetch worker with organization in one query
+      const { data: workerData, error: workerError } = await supabase
         .from('workers')
-        .select('*, organizations!organization_id(name, logo_url)')
+        .select('*, organizations(name, logo_url)')
         .eq('email', user.email)
         .maybeSingle();
 
-      // Fallback for PGRST201 error (embed ambiguity)
-      if (workerError && (workerError.code === 'PGRST201' || workerError.message?.includes('more than one relationship'))) {
-        console.warn('⚠️ PGRST201 embed error, using fallback fetch');
-        
-        // Fetch worker without organization
-        const { data: basicWorker, error: basicError } = await supabase
-          .from('workers')
-          .select('*')
-          .eq('email', user.email)
-          .maybeSingle();
-
-        if (basicError || !basicWorker) {
-          throw new Error('Failed to fetch worker data');
-        }
-
-        // Fetch organization separately
-        const { data: org } = await supabase
-          .from('organizations')
-          .select('name, logo_url')
-          .eq('id', basicWorker.organization_id)
-          .maybeSingle();
-
-        workerData = {
-          ...basicWorker,
-          organizations: org || null
-        };
-      } else if (workerError) {
+      if (workerError) {
         throw workerError;
       }
 
